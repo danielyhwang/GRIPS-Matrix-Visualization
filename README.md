@@ -20,4 +20,4 @@ Our mentors this summer were Mohammed Ghannam, Gioni Mexi, and Liding Xu of Zuse
 - In other words, designer is a template designer NOT meant for actual programming use.
 
 ### Other internal notes (setup)
-- requirements.txt contains the list of packages needed for this project. You can install this list by running `pip install -r requirements.txt`. You can generate this list by running `pip freeze` on your venv.
+- requirements.txt contains the list of packages needed for this project. You can install this list by running `pip install -r requirements.txt`. You can generate this list by running `pip freeze > requirements.txt` on your venv.
