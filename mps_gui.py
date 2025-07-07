@@ -1,15 +1,32 @@
+
+## NEXT STEPS:
+# Make it so we can take in larger MPS files, at leat 10k variables
+# Add comments to code and functions to explain things
+# Make rows and columns clickable so user can get row/column numerical properties
+# Make both scatterplots export to CSV/CSR
+# Add more functionality to the GUI
+# --- For example, be able to expand/contract the upper text part
+# Make the image export actually work
+
+
+
+
+
 import sys
 import numpy as np
+import csv
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QTextEdit,
-    QFileDialog, QComboBox, QHBoxLayout, QMessageBox
+    QFileDialog, QComboBox, QHBoxLayout, QToolTip, QSpacerItem, QSizePolicy
 )
+
 from PySide6.QtCharts import QChart, QChartView, QScatterSeries
 from PySide6.QtCore import QPointF
-from PySide6.QtGui import QPainter, QColor
+from PySide6.QtGui import QPainter, QColor, QCursor
 from pyscipopt import Model
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import svds
+import random
 
 
 class MPSLoaderApp(QWidget):
@@ -19,6 +36,7 @@ class MPSLoaderApp(QWidget):
         self.resize(1000, 700)
 
         self.A_sparse = None
+        self.last_plot_data = []  # Store (row, col, val) for exporting
 
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
@@ -34,6 +52,10 @@ class MPSLoaderApp(QWidget):
         self.plot_selector.currentIndexChanged.connect(self.update_plot)
         control_layout.addWidget(self.plot_selector)
 
+        self.export_button = QPushButton("Export Matrix to CSV")
+        self.export_button.clicked.connect(self.export_matrix_to_csv)
+        control_layout.addWidget(self.export_button)
+
         self.layout.addLayout(control_layout)
 
         self.text_area = QTextEdit()
@@ -43,6 +65,15 @@ class MPSLoaderApp(QWidget):
         self.chart_view = QChartView()
         self.chart_view.setRenderHint(QPainter.Antialiasing)
         self.layout.addWidget(self.chart_view)
+
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addStretch()  
+
+        self.export_image_button = QPushButton("Export Plot to JPEG")
+        self.export_image_button.clicked.connect(self.export_chart_as_image)
+        bottom_layout.addWidget(self.export_image_button)
+
+        self.layout.addLayout(bottom_layout)
 
     def load_mps_file(self):
         filename, _ = QFileDialog.getOpenFileName(self, "Open MPS File", "", "MPS Files (*.mps *.MPS);;All Files (*)")
@@ -91,7 +122,7 @@ class MPSLoaderApp(QWidget):
 
         stats = (
             f"📁 File: {filename}\n"
-            f"🔷 Matrix shape: {n_cons} rows x {n_vars} columns\n"
+            f"🔹 Matrix shape: {n_cons} rows x {n_vars} columns\n"
             f"🔹 Total entries: {total_entries}\n"
             f"🔹 Non-zero entries: {non_zero}\n"
             f"🔹 Sparsity: {sparsity:.2f}%\n"
@@ -114,14 +145,32 @@ class MPSLoaderApp(QWidget):
         elif plot_type == "Magnitude Scatterplot":
             self.plot_magnitude_scatterplot()
 
-    def show_popup(self, title, content):
-        msg = QMessageBox(self)
-        msg.setWindowTitle(title)
-        msg.setText(content)
-        msg.exec()
+    def export_matrix_to_csv(self):
+        if not self.last_plot_data:
+            return
+        filename, _ = QFileDialog.getSaveFileName(self, "Save Matrix Data", "", "CSV Files (*.csv)")
+        if not filename:
+            return
+        with open(filename, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Row", "Column", "Value"])
+            writer.writerows(self.last_plot_data)
+
+    def on_point_hovered(self, point, state):
+        if state:
+            row = int(point.y())
+            col = int(point.x())
+            val = self.A_sparse[row, col]
+            QToolTip.showText(QCursor.pos(), f"Row: {row}\nCol: {col}\nVal: {val:.4g}", self.chart_view)
 
     def plot_binary_scatterplot(self):
         rows, cols = self.A_sparse.nonzero()
+        indices = list(zip(rows, cols))
+
+        if len(indices) > 100_000:
+            indices = random.sample(indices, 100_000)
+
+        self.last_plot_data = [(r, c, self.A_sparse[r, c]) for r, c in indices]
 
         chart = QChart()
         chart.setTitle("Binary Scatterplot of Constraint Matrix A (white = 0, black = non-zero)")
@@ -130,17 +179,12 @@ class MPSLoaderApp(QWidget):
         series = QScatterSeries()
         series.setMarkerSize(6)
         series.setColor(QColor("black"))
-        for x, y in zip(cols, rows):
-            point = QPointF(x, y)
+
+        for r, c in indices:
+            point = QPointF(c, r)
             series.append(point)
 
-        def on_point_clicked(point):
-            row = int(point.y())
-            col = int(point.x())
-            val = self.A_sparse[row, col]
-            self.show_popup("Matrix Entry Clicked", f"Row: {row}\nColumn: {col}\nValue: {val:.4g}")
-
-        series.clicked.connect(on_point_clicked)
+        series.hovered.connect(self.on_point_hovered)
 
         chart.addSeries(series)
         chart.createDefaultAxes()
@@ -154,33 +198,30 @@ class MPSLoaderApp(QWidget):
         rows, cols = self.A_sparse.nonzero()
         vals = self.A_sparse.data
 
+        entries = list(zip(rows, cols, vals))
+        if len(entries) > 50_000:
+            entries = random.sample(entries, 50_000)
+
+        self.last_plot_data = [(r, c, v) for r, c, v in entries]
+
         chart = QChart()
         chart.setTitle("Magnitude Scatterplot of Constraint Matrix A (Blue = Negative, Red = Positive, Darker = Larger Magnitude)")
         chart.legend().hide()
 
-        max_val = abs(vals).max() if self.A_sparse.nnz > 0 else 1.0
+        max_val = max(abs(v) for _, _, v in entries) if entries else 1.0
 
-        for x, y, v in zip(cols, rows, vals):
+        for r, c, v in entries:
             normalized = min(abs(v) / max_val, 1.0)
-            alpha = int(255 * (normalized ** 0.5))  # use square root for darker values
-            alpha = max(alpha, 50)  # ensure even small values are visible
+            alpha = int(255 * (normalized ** 0.5))
+            alpha = max(alpha, 50)
 
-            if v > 0:
-                color = QColor(255, 0, 0, alpha)
-            else:
-                color = QColor(0, 0, 255, alpha)
+            color = QColor(255, 0, 0, alpha) if v > 0 else QColor(0, 0, 255, alpha)
 
             series = QScatterSeries()
             series.setMarkerSize(6)
             series.setColor(color)
-            series.append(QPointF(x, y))
-
-            def make_handler(row=y, col=x, val=v):
-                def on_click(_):
-                    self.show_popup("Matrix Entry Clicked", f"Row: {row}\nColumn: {col}\nValue: {val:.4g}")
-                return on_click
-
-            series.clicked.connect(make_handler())
+            series.append(QPointF(c, r))
+            series.hovered.connect(self.on_point_hovered)
             chart.addSeries(series)
 
         chart.createDefaultAxes()
@@ -190,9 +231,30 @@ class MPSLoaderApp(QWidget):
 
         self.chart_view.setChart(chart)
 
+    def export_chart_as_image(self):
+        if not self.chart_view.chart():
+            QToolTip.showText(QCursor.pos(), "❌ No chart to export.", self.chart_view)
+            return
+
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Chart as JPEG",
+            "plot.jpeg",
+            "JPEG Image (*.jpeg *.jpg)"
+        )
+        if not filename:
+            return
+
+        pixmap = self.chart_view.grab()
+        if not pixmap.save(filename, "JPEG"):
+            QToolTip.showText(QCursor.pos(), "❌ Failed to save image.", self.chart_view)
+        else:
+            QToolTip.showText(QCursor.pos(), f"✅ Saved: {filename}", self.chart_view)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MPSLoaderApp()
     window.show()
     sys.exit(app.exec())
+
