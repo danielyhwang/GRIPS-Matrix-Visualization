@@ -5,7 +5,20 @@
 The goal of this project is to create a tool that visualizes matrices, more specifically, constraint matrices associated with MIPS, and extracts useful information/patterns from them.
 
 ## Tools Used
-PyQt, PySciPoPT, Scipy, Numpy.
+PyQt to create the graphical interface, PySciPoPT to load in the MIPS model, along with common libraries such as Scipy, Numpy, Matplotlib, Seaborn, etc...
+
+## How To Use
+1. Clone this repo. 
+2. Open Terminal (Mac/Linux) or Command Prompt (Windows) and change directory to current repo. One way to do this via GitHub Desktop is to right click on the repo name, click "Copy repo path" and run `cd insert_repo_path_here`.
+3. For first-time use (skip if not needed): Create virtual environment by running `python -m venv env`. Activate virtual environment by running `source env/bin/activate` (Mac) or `env\Scripts\activate.bat` (Windows). Run `pip install -r requirements.txt` to load in all libraries in use. For developers, periodically update libraries used by running `pip freeze > requirements.txt`.
+4. Now run `python mps_graph.py` or `python mps_gui.py`.
+
+## Developer's Notes: GitHub Desktop workflow.
+1. Clone the repo if you haven't already. Remember to fetch origin to make sure your files are synced with the repo!!!
+2. Create a new branch based off main - name it whatever you wish. **DO NOT DIRECTLY PUSH TO MAIN.**
+3. Make changes, commit them, and push to origin. They should now be available on GitHub.
+4. To push changes onto main, open a pull request from your branch into main. If there are manual conflicts, resolve them before proceeding. Your changes should now be updated onto main!
+5. **REMEMBER PERIODICALLY TO CLICK CURRENT BRANCH AND MERGE MAIN INTO YOUR BRANCH.** If there are manual conflicts, resolve them before proceeding.
 
 ## Acknowledgements
 Our mentors this summer were Mohammed Ghannam, Gioni Mexi, and Liding Xu of Zuse Institute Berlin (ZIB). The authors of this repository acknowledge funding from IPAM (US participants) and MODAL (EU participants) for the summer, along with ZIB for their gracious hospitality.
@@ -18,8 +31,3 @@ Our mentors this summer were Mohammed Ghannam, Gioni Mexi, and Liding Xu of Zuse
 - Note to self: It's very hard to add custom functionality to these components, at least automatically.
 - It seems the intended functionality is to allow you to create a drag and drop file, after which you can convert it into a file meant for use.
 - In other words, designer is a template designer NOT meant for actual programming use.
-
-### Other internal notes (setup)
-- requirements.txt contains the list of packages needed for this project. You can install this list by running `pip install -r requirements.txt`. You can generate this list by running `pip freeze > requirements.txt` on your venv.
-
-This is a test edit.
