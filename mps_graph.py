@@ -35,7 +35,7 @@ class Node(QGraphicsObject):
         self._name = name
         self._edges = []
         self._color = "#5AD469"
-        self._radius = 30
+        self._radius = 10 #ADJUST THIS VARIABLE TO CHANGE NODE SIZE.
         self._rect = QRectF(0, 0, self._radius * 2, self._radius * 2)
 
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
@@ -71,7 +71,7 @@ class Node(QGraphicsObject):
         )
         painter.setBrush(QBrush(QColor(self._color)))
         painter.drawEllipse(self.boundingRect())
-        painter.setPen(QPen(QColor("white")))
+        painter.setPen(QPen(QColor("black"))) #MODIFY TO CHANGE TEXT COLOR
         painter.drawText(self.boundingRect(), 0, str(self._name)) 
 
     def add_edge(self, edge):
@@ -240,7 +240,7 @@ class GraphView(QGraphicsView):
         self.setScene(self._scene)
 
         # Used to add space between nodes
-        self._graph_scale = 200
+        self._graph_scale = 100 # MODIFY THIS TO CHANGE SPACING
 
         # Map node name to Node object {str=>Node}
         self._nodes_map = {}
@@ -250,10 +250,12 @@ class GraphView(QGraphicsView):
             "circular": nx.circular_layout,
             "planar": nx.planar_layout,
             "random": nx.random_layout,
-            "shell_layout": nx.shell_layout,
-            "kamada_kawai_layout": nx.kamada_kawai_layout,
-            "spring_layout": nx.spring_layout,
-            "spiral_layout": nx.spiral_layout,
+            "shell": nx.shell_layout,
+            "kamada_kawai": nx.kamada_kawai_layout,
+            "spring": nx.spring_layout,
+            "spiral": nx.spiral_layout,
+            "spectral": nx.spectral_layout,
+            "bipartite": nx.bipartite_layout
         }
 
         self._load_graph()
@@ -342,13 +344,13 @@ class MPSLoaderApp(QWidget):
         self.layout.addWidget(self.view)
 
     def load_mps_file(self):
-        filename, _ = QFileDialog.getOpenFileName(self, "Open MPS File", "", "MPS Files (*.mps *.MPS);;All Files (*)")
-        if not filename:
+        self.filename, _ = QFileDialog.getOpenFileName(self, "Open MPS File", "", "MPS Files (*.mps *.MPS);;All Files (*)")
+        if not self.filename:
             return
 
         # Load model and build sparse matrix
         self.model = Model()
-        self.model.readProblem(filename)
+        self.model.readProblem(self.filename)
 
         self.variables = self.model.getVars()
         self.constraints = self.model.getConss()
@@ -359,17 +361,6 @@ class MPSLoaderApp(QWidget):
 
         self.n_vars = len(self.variables)
         self.n_cons = len(self.constraints)
-
-         # Load in details into text.
-        self.text_area.clear()
-
-        # Display basic info and store it in text area.
-        info_text = (
-            f"Loaded MPS file: {filename}\n"
-            f"Number of variables: {self.n_vars}\n"
-            f"Number of constraints: {self.n_cons}\n"
-        )
-        self.text_area.setPlainText(info_text)
 
         # Build primal graph. The set of vertices is the set of columns c_k, the set of edges is the set (c_k, c_l) such that there exists 
         # a row such that A[r][c_k] != 0 and A[r][c_l] != 0
@@ -402,6 +393,40 @@ class MPSLoaderApp(QWidget):
         self.graph_choice_combo.clear()
         self.graph_choice_combo.addItems(["Primal graph", "Dual graph", "Incidence graph"]) #Primal graph must come first
         self.graph_choice_combo.currentTextChanged.connect(self.load_graph_type)
+
+         # Calculate basic statistics and store it in text.
+        self.text_area.clear()
+        degrees = [deg for _, deg in primal_graph.degree()]
+        avg_degree = np.mean(degrees)
+        max_degree = np.max(degrees)
+        clustering = nx.clustering(primal_graph)
+        clustering_avg = np.mean(list(clustering.values()))
+        components = list(nx.connected_components(primal_graph))
+        num_components = len(components)
+        component_sizes = [len(c) for c in components]
+        largest_component = max(component_sizes)
+        
+        try:
+            from networkx.algorithms.approximation.treewidth import treewidth_min_fill_in
+            treewidth_calculated, _ = treewidth_min_fill_in(primal_graph)
+        except:
+            treewidth_calculated = "N/A"
+            print("⚠️ Treewidth estimation not available — requires `networkx >= 2.6`.")
+            print("🧠 Explanation: Treewidth is NP-hard to compute exactly, so approximation is used.\n")
+
+        info_text = (
+            f"Loaded MPS file: {self.filename}\n"
+            f"Number of variables: {self.n_vars}\n"
+            f"Number of constraints: {self.n_cons}\n"
+            f"Average node degree: {avg_degree:.2f}\n"
+            f"Maximum node degree: {max_degree}\n"
+            f"Average clustering coefficient: {clustering_avg:.4f}\n"
+            f"Number of connected components: {num_components}\n"
+            f"Largest component size: {largest_component}\n"
+            f"Treewidth (approxmimate): {treewidth_calculated}"
+        )
+        self.text_area.setPlainText(info_text)
+
 
     def load_graph_type(self):
         updated_graph = nx.Graph()
@@ -475,7 +500,39 @@ class MPSLoaderApp(QWidget):
         self.view._load_graph()
         self.view.set_nx_layout("circular")
 
-        # AFTER LUNCH: Dual graph.
+         # Calculate basic statistics and store it in text.
+        self.text_area.clear()
+        degrees = [deg for _, deg in updated_graph.degree()]
+        avg_degree = np.mean(degrees)
+        max_degree = np.max(degrees)
+        clustering = nx.clustering(updated_graph)
+        clustering_avg = np.mean(list(clustering.values()))
+        components = list(nx.connected_components(updated_graph))
+        num_components = len(components)
+        component_sizes = [len(c) for c in components]
+        largest_component = max(component_sizes)
+        
+        try:
+            from networkx.algorithms.approximation.treewidth import treewidth_min_fill_in
+            treewidth_calculated, _ = treewidth_min_fill_in(updated_graph)
+        except:
+            treewidth_calculated = "N/A"
+            print("⚠️ Treewidth estimation not available — requires `networkx >= 2.6`.")
+            print("🧠 Explanation: Treewidth is NP-hard to compute exactly, so approximation is used.\n")
+
+        info_text = (
+            f"Loaded MPS file: {self.filename}\n"
+            f"Number of variables: {self.n_vars}\n"
+            f"Number of constraints: {self.n_cons}\n"
+            f"Average node degree: {avg_degree:.2f}\n"
+            f"Maximum node degree: {max_degree}\n"
+            f"Average clustering coefficient: {clustering_avg:.4f}\n"
+            f"Number of connected components: {num_components}\n"
+            f"Largest component size: {largest_component}\n"
+            f"Treewidth (approxmimate): {treewidth_calculated}"
+        )
+        self.text_area.setPlainText(info_text)
+
         # BONUS: Integrate Sonali's code. TREEWIDTH, TREEDEPTH, STRUCTURE GRAPH, CLIQUES, DEGREE DISTRIBUTIONS, CLUSTERING COEFFICIENTS, CONNECTED COMPONENTS
 
 
