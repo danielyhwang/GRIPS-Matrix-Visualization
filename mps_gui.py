@@ -6,10 +6,6 @@
 # Make both scatterplots export to CSV/CSR
 # Add more functionality to the GUI
 # --- For example, be able to expand/contract the upper text part
-# Make the image export actually work
-
-
-
 
 
 import sys
@@ -19,7 +15,6 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QTextEdit,
     QFileDialog, QComboBox, QHBoxLayout, QToolTip, QSpacerItem, QSizePolicy
 )
-
 from PySide6.QtCharts import QChart, QChartView, QScatterSeries
 from PySide6.QtCore import QPointF
 from PySide6.QtGui import QPainter, QColor, QCursor
@@ -36,7 +31,7 @@ class MPSLoaderApp(QWidget):
         self.resize(1000, 700)
 
         self.A_sparse = None
-        self.last_plot_data = []  # Store (row, col, val) for exporting
+        self.last_plot_data = []
 
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
@@ -67,13 +62,22 @@ class MPSLoaderApp(QWidget):
         self.layout.addWidget(self.chart_view)
 
         bottom_layout = QHBoxLayout()
-        bottom_layout.addStretch()  
+        bottom_layout.addStretch()
 
         self.export_image_button = QPushButton("Export Plot to JPEG")
         self.export_image_button.clicked.connect(self.export_chart_as_image)
         bottom_layout.addWidget(self.export_image_button)
 
         self.layout.addLayout(bottom_layout)
+
+        # Highlight series
+        self.row_highlight_series = QScatterSeries()
+        self.row_highlight_series.setMarkerSize(6)
+        self.row_highlight_series.setColor(QColor(255, 255, 150, 180))  # Light yellow
+
+        self.col_highlight_series = QScatterSeries()
+        self.col_highlight_series.setMarkerSize(6)
+        self.col_highlight_series.setColor(QColor(255, 255, 150, 180))  # Light yellow
 
     def load_mps_file(self):
         filename, _ = QFileDialog.getOpenFileName(self, "Open MPS File", "", "MPS Files (*.mps *.MPS);;All Files (*)")
@@ -163,6 +167,105 @@ class MPSLoaderApp(QWidget):
             val = self.A_sparse[row, col]
             QToolTip.showText(QCursor.pos(), f"Row: {row}\nCol: {col}\nVal: {val:.4g}", self.chart_view)
 
+
+    # COMMENT OUT STARTING HERE IF YOU WANT TO SEE INDIVIDUAL VALUES
+
+    def clear_highlight_series(self, chart):
+        chart.removeSeries(self.row_highlight_series)
+        chart.removeSeries(self.col_highlight_series)
+        self.row_highlight_series.clear()
+        self.col_highlight_series.clear()
+
+    def on_row_hovered(self, row_idx, state):
+        if not state or self.A_sparse is None:
+            return
+        chart = self.chart_view.chart()
+        self.clear_highlight_series(chart)
+
+        row = self.A_sparse.getrow(row_idx).toarray().flatten()
+        cols = np.nonzero(row)[0]
+        vals = row[cols]
+        if len(vals) == 0:
+            return
+
+        for col in cols:
+            self.row_highlight_series.append(QPointF(col, row_idx))
+
+        chart.addSeries(self.row_highlight_series)
+
+        max_val = np.max(vals)
+        min_val = np.min(vals)
+        ratio = abs(max_val) / abs(min_val) if abs(min_val) > 0 else float('inf')
+
+        QToolTip.showText(
+            QCursor.pos(),
+            f"Row {row_idx}\nMax: {max_val:.4g}\nMin: {min_val:.4g}\nMax/Min Ratio: {ratio:.2f}",
+            self.chart_view
+        )
+
+    def on_col_hovered(self, col_idx, state):
+        if not state or self.A_sparse is None:
+            return
+        chart = self.chart_view.chart()
+        self.clear_highlight_series(chart)
+
+        col = self.A_sparse.getcol(col_idx).toarray().flatten()
+        rows = np.nonzero(col)[0]
+        vals = col[rows]
+        if len(vals) == 0:
+            return
+
+        for row in rows:
+            self.col_highlight_series.append(QPointF(col_idx, row))
+
+        chart.addSeries(self.col_highlight_series)
+
+        max_val = np.max(vals)
+        min_val = np.min(vals)
+        ratio = abs(max_val) / abs(min_val) if abs(min_val) > 0 else float('inf')
+
+        QToolTip.showText(
+            QCursor.pos(),
+            f"Column {col_idx}\nMax: {max_val:.4g}\nMin: {min_val:.4g}\nMax/Min Ratio: {ratio:.2f}",
+            self.chart_view
+        )
+
+    def add_hoverable_axis_areas(self, chart, count, is_row):
+        # Get axis ranges to cover entire axis length
+        x_max = int(chart.axisX().max())
+        y_max = int(chart.axisY().max())
+
+        for idx in range(count):
+            series = QScatterSeries()
+            series.setMarkerSize(20)  # Bigger marker for easier hover detection
+            series.setColor(QColor(0, 0, 0, 0))  
+
+            if is_row:
+                # Add points along the entire row
+                for col in range(x_max + 1):
+                    series.append(QPointF(col, idx))
+
+                def make_row_cb(row_idx):
+                    return lambda point, state: self.on_row_hovered(row_idx, state)
+                series.hovered.connect(make_row_cb(idx))
+
+            else:
+                # Add points along the entire column
+                for row in range(y_max + 1):
+                    series.append(QPointF(idx, row))
+
+                def make_col_cb(col_idx):
+                    return lambda point, state: self.on_col_hovered(col_idx, state)
+                series.hovered.connect(make_col_cb(idx))
+
+            chart.addSeries(series)
+            series.attachAxis(chart.axisX())
+            series.attachAxis(chart.axisY())
+
+
+    # COMMENTING STOPS HERE. UNCOMMENT ABOVE IF YOU WANT TO SEE COLUMN VALUES
+    # To comment out large chunks of code, highlight the code and use Command / on Mac
+
     def plot_binary_scatterplot(self):
         rows, cols = self.A_sparse.nonzero()
         indices = list(zip(rows, cols))
@@ -193,6 +296,10 @@ class MPSLoaderApp(QWidget):
         chart.axisY().setReverse(True)
 
         self.chart_view.setChart(chart)
+
+        self.clear_highlight_series(chart)
+        self.add_hoverable_axis_areas(chart, self.A_sparse.shape[0], is_row=True)
+        self.add_hoverable_axis_areas(chart, self.A_sparse.shape[1], is_row=False)
 
     def plot_magnitude_scatterplot(self):
         rows, cols = self.A_sparse.nonzero()
@@ -230,6 +337,10 @@ class MPSLoaderApp(QWidget):
         chart.axisY().setReverse(True)
 
         self.chart_view.setChart(chart)
+
+        self.clear_highlight_series(chart)
+        self.add_hoverable_axis_areas(chart, self.A_sparse.shape[0], is_row=True)
+        self.add_hoverable_axis_areas(chart, self.A_sparse.shape[1], is_row=False)
 
     def export_chart_as_image(self):
         if not self.chart_view.chart():
