@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import math, sys
-from PySide6.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QTextEdit, QFileDialog
+from PySide6.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QTextEdit, QFileDialog, QMessageBox
 from pyscipopt import Model
 from scipy.sparse import csr_matrix
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
+# Zoom/Pan code copied from https://stackoverflow.com/questions/35508711/how-to-enable-pan-and-zoom-in-a-qgraphicsview
 # NetworkX code copied from https://doc.qt.io/qtforpython-6/examples/example_external_networkx.html
 # Copyright (C) 2022 The Qt Company Ltd.
 # SPDX-License-Identifier: LicenseRef-Qt-Commercial OR BSD-3-Clause
@@ -35,7 +36,7 @@ class Node(QGraphicsObject):
         self._name = name
         self._edges = []
         self._color = "#5AD469"
-        self._radius = 10 #ADJUST THIS VARIABLE TO CHANGE NODE SIZE.
+        self._radius = 30 #ADJUST THIS VARIABLE TO CHANGE NODE SIZE.
         self._rect = QRectF(0, 0, self._radius * 2, self._radius * 2)
 
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable)
@@ -226,6 +227,9 @@ class Edge(QGraphicsItem):
 
 
 class GraphView(QGraphicsView):
+    # This part was merged with the Pan/Zoom code.
+    # NOTE THESE ARE EDITS ARE IN PROGRESS.
+
     def __init__(self, graph: nx.DiGraph, parent=None):
         """GraphView constructor
 
@@ -239,6 +243,26 @@ class GraphView(QGraphicsView):
         self._scene = QGraphicsScene()
         self.setScene(self._scene)
 
+        """
+        Following code sets up pan/zoom functionality.
+        """
+
+        #self._zoom = 0
+        #self._pinned = False
+        #self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        #self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        #self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        #self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        #self.setBackgroundBrush(QBrush(QColor(30, 30, 30))) # This code sets the color.
+        #self.setFrameShape(QtWidgets.Qframe.Shape.NoFrame)
+
+        # Pause here, continue stuff. Keep working on graph, 
+        # move onto row and column clickable functionality.
+
+        """
+        Following code creates graph
+        """
+
         # Used to add space between nodes
         self._graph_scale = 100 # MODIFY THIS TO CHANGE SPACING
 
@@ -246,6 +270,8 @@ class GraphView(QGraphicsView):
         self._nodes_map = {}
 
         # List of networkx layout function
+        # To make things consistent, please keep circular as the first layout.
+        # Tried looking at graphviz, but doesn't like it is supported by Python.
         self._nx_layout = {
             "circular": nx.circular_layout,
             "planar": nx.planar_layout,
@@ -278,8 +304,16 @@ class GraphView(QGraphicsView):
         if name in self._nx_layout:
             self._nx_layout_function = self._nx_layout[name]
 
-            # Compute node position from layout function
-            positions = self._nx_layout_function(self._graph)
+            # Try computing node position from layout function, if not possible, try something else.
+            try:
+                # Compute node position from layout function
+                positions = self._nx_layout_function(self._graph)
+            except:
+                msgBox = QMessageBox()
+                msgBox.setWindowTitle("")
+                msgBox.setText("Error: Your layout is not possible for this graph! Try choosing another layout.")
+                msgBox.exec()
+                return None
 
             # Change position of all nodes using an animation
             self.animations = QParallelAnimationGroup()
@@ -318,7 +352,7 @@ class GraphView(QGraphicsView):
 class MPSLoaderApp(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("MPS Loader and Sparse Matrix Viewer")
+        self.setWindowTitle("MPS Loader and Graph Viewer")
         self.resize(800, 600)
 
         self.layout = QVBoxLayout()
@@ -388,7 +422,10 @@ class MPSLoaderApp(QWidget):
         self.view._scene = QGraphicsScene()
         self.view.setScene(self.view._scene)
         self.view._load_graph()
+        self.choice_combo.setCurrentText("circular") #this will inadvertently call set_nx_layout("circular")
         self.view.set_nx_layout("circular")
+        
+        # HERE CHANGE COMBO CHOICE TO CIRCULAR
 
         self.graph_choice_combo.clear()
         self.graph_choice_combo.addItems(["Primal graph", "Dual graph", "Incidence graph"]) #Primal graph must come first
@@ -498,7 +535,7 @@ class MPSLoaderApp(QWidget):
         self.view._scene = QGraphicsScene()
         self.view.setScene(self.view._scene)
         self.view._load_graph()
-        self.view.set_nx_layout("circular")
+        self.choice_combo.setCurrentText("circular") #this will inadvertently call set_nx_layout("circular")
 
          # Calculate basic statistics and store it in text.
         self.text_area.clear()
@@ -532,8 +569,6 @@ class MPSLoaderApp(QWidget):
             f"Treewidth (approxmimate): {treewidth_calculated}"
         )
         self.text_area.setPlainText(info_text)
-
-        # BONUS: Integrate Sonali's code. TREEWIDTH, TREEDEPTH, STRUCTURE GRAPH, CLIQUES, DEGREE DISTRIBUTIONS, CLUSTERING COEFFICIENTS, CONNECTED COMPONENTS
 
 
 if __name__ == "__main__":
