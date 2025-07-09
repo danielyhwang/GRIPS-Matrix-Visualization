@@ -349,42 +349,31 @@ class GraphView(QGraphicsView):
             dest = self._nodes_map[b]
             self.scene().addItem(Edge(source, dest))
 
-class MPSLoaderApp(QWidget):
-    def __init__(self):
+# The following code contains a self-contained graph visualization widget, which allows it
+# to be imported as a module in our mps_merged_viewer.py file. Note that it is initialized by feeding
+# in a filename.
+class GraphViewer(QWidget):
+    """
+    Initializes a GraphView and TextBox where we can store important information.
+    Input: filename - name of a file passed in from QFileDialog.
+    """
+    def __init__(self, filename):
+        self.filename = filename
+
         super().__init__()
-        self.setWindowTitle("MPS Loader and Graph Viewer")
-        self.resize(800, 600)
 
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
 
-        self.load_button = QPushButton("Load MPS File")
-        self.load_button.clicked.connect(self.load_mps_file)
-        self.graph_choice_combo = QComboBox()
-        self.hbox = QHBoxLayout()
-        self.hbox.addWidget(self.load_button)
-        self.hbox.addWidget(self.graph_choice_combo)
-        self.layout.addLayout(self.hbox)
+        #Create a text box where you can store information.
 
         self.text_area = QTextEdit()
         self.text_area.setReadOnly(True)
         self.layout.addWidget(self.text_area)
 
-        self.view = GraphView(nx.complete_graph(5))
-        self.choice_combo = QComboBox()
-        self.choice_combo.addItems(self.view.get_nx_layouts())
-        self.choice_combo.currentTextChanged.connect(self.view.set_nx_layout)
-        self.layout.addWidget(self.choice_combo)
-        self.layout.addWidget(self.view)
-
-    def load_mps_file(self):
-        self.filename, _ = QFileDialog.getOpenFileName(self, "Open MPS File", "", "MPS Files (*.mps *.MPS);;All Files (*)")
-        if not self.filename:
-            return
-
         # Load model and build sparse matrix
         self.model = Model()
-        self.model.readProblem(self.filename)
+        self.model.readProblem(filename)
 
         self.variables = self.model.getVars()
         self.constraints = self.model.getConss()
@@ -401,7 +390,7 @@ class MPSLoaderApp(QWidget):
         primal_graph = nx.Graph()
         # Add vertices
         primal_graph.add_nodes_from(self.var_names)
-
+        # Add edges
         for i, cons in enumerate(self.constraints):
             terms = self.model.getValsLinear(cons)
             nonzero_columns_this_row = []
@@ -416,20 +405,8 @@ class MPSLoaderApp(QWidget):
                         if k != l:
                             primal_graph.add_edge(k, l)
 
-        # Reset self.view and self.choice_combo before reupdating it based on graph of choice.
-        #For some reason, calling self.view = GraphView(primal_graph) does not work. Had to do this instead.
-        self.view._graph = primal_graph
-        self.view._scene = QGraphicsScene()
-        self.view.setScene(self.view._scene)
-        self.view._load_graph()
-        self.choice_combo.setCurrentText("circular") #this will inadvertently call set_nx_layout("circular")
-        self.view.set_nx_layout("circular")
-        
-        # HERE CHANGE COMBO CHOICE TO CIRCULAR
-
-        self.graph_choice_combo.clear()
-        self.graph_choice_combo.addItems(["Primal graph", "Dual graph", "Incidence graph"]) #Primal graph must come first
-        self.graph_choice_combo.currentTextChanged.connect(self.load_graph_type)
+        # Create GraphView based on primal graph.
+        self.view = GraphView(primal_graph)
 
          # Calculate basic statistics and store it in text.
         self.text_area.clear()
@@ -451,6 +428,7 @@ class MPSLoaderApp(QWidget):
             print("⚠️ Treewidth estimation not available — requires `networkx >= 2.6`.")
             print("🧠 Explanation: Treewidth is NP-hard to compute exactly, so approximation is used.\n")
 
+        # Set text based on statistics above.
         info_text = (
             f"Loaded MPS file: {self.filename}\n"
             f"Number of variables: {self.n_vars}\n"
@@ -464,11 +442,46 @@ class MPSLoaderApp(QWidget):
         )
         self.text_area.setPlainText(info_text)
 
+        # Create a choice combo box where you can toggle between different layouts (based off layouts of self view).
 
-    def load_graph_type(self):
-        updated_graph = nx.Graph()
+        self.choice_combo = QComboBox()
+        self.choice_combo.addItems(self.view.get_nx_layouts())
+        self.choice_combo.currentTextChanged.connect(self.view.set_nx_layout)
+        self.layout.addWidget(self.choice_combo)
+        self.layout.addWidget(self.view)
         
-        if self.graph_choice_combo.currentText() == "Primal graph":
+        # Set current layout to circular.
+        self.choice_combo.setCurrentText("circular")
+        #self.view.set_nx_layout("circular") # Not necessary?
+
+        # Create a button where you can export current graph to JPEG.
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addStretch()
+        self.export_image_button = QPushButton("Export Plot to JPEG")
+        self.export_image_button.clicked.connect(self.export_chart_as_image)
+        bottom_layout.addWidget(self.export_image_button)
+
+        # Testing functionality of GraphViewer.
+        #self.primal_graph_test_button = QPushButton("Primal Graph")
+        #self.dual_graph_test_button = QPushButton("Dual Graph")
+        #self.incidence_graph_test_button = QPushButton("Incidence Graph")
+        #self.silly_test_button = QPushButton("Silly")
+        #self.primal_graph_test_button.clicked.connect(lambda: self.load_graph_type("Primal graph"))
+        #self.dual_graph_test_button.clicked.connect(lambda: self.load_graph_type("Dual graph"))
+        #self.incidence_graph_test_button.clicked.connect(lambda: self.load_graph_type("Incidence graph"))
+        #self.silly_test_button.clicked.connect(lambda: self.load_graph_type("Silly"))
+        #bottom_layout.addWidget(self.primal_graph_test_button)
+        #bottom_layout.addWidget(self.dual_graph_test_button)
+        #bottom_layout.addWidget(self.incidence_graph_test_button)
+        #bottom_layout.addWidget(self.silly_test_button)
+
+        self.layout.addLayout(bottom_layout)
+
+    def load_graph_type(self, type_of_graph):
+        updated_graph = nx.Graph()
+
+        
+        if type_of_graph == "Primal graph":
             # Build primal graph. The set of vertices is the set of columns c_k, the set of edges is the set (c_k, c_l) such that there exists 
             # a row such that A[r][c_k] != 0 and A[r][c_l] != 0
             # Add vertices
@@ -488,8 +501,12 @@ class MPSLoaderApp(QWidget):
                             if k != l:
                                 updated_graph.add_edge(k, l)
 
-        elif self.graph_choice_combo.currentText() == "Dual graph":
-            print("Warning: Because PySciPoPT does not support searching over each column, we manually reconstruct a binary version of the transpose matrix, this may lead to large runtime")
+        elif type_of_graph == "Dual graph":
+            msgBox = QMessageBox()
+            msgBox.setWindowTitle("")
+            msgBox.setText("Warning: Because PySciPoPT does not support searching over each column, we manually reconstruct a binary version of the transpose matrix, this may lead to large runtime")
+            msgBox.exec()
+            
             # Add vertices
             updated_graph.add_nodes_from(self.con_names)
             
@@ -515,7 +532,7 @@ class MPSLoaderApp(QWidget):
                             if k != l:
                                 updated_graph.add_edge(k, l)
 
-        elif self.graph_choice_combo.currentText() == "Incidence graph":
+        elif type_of_graph == "Incidence graph":
             # Build incidence graph = The set of vertices is the set of rows r_k and cols c_l, the set of edges connects r_k and c_l if A[r_k][c_l] != 0.
             updated_graph.add_nodes_from(self.var_names)
             updated_graph.add_nodes_from(self.con_names)
@@ -527,7 +544,12 @@ class MPSLoaderApp(QWidget):
                     if coef != 0:
                         updated_graph.add_edge(cons.name, var_name)
         else:
-            raise ValueError("Items in combo box do not match those in load_graph_type")
+            msgBox = QMessageBox()
+            msgBox.setWindowTitle("")
+            msgBox.setText("ERROR: The type of graph you have requested is not supported. Please try something else. "
+            + "(Devs: This means that you tried calling load_graph_type with an option that is currently not implemented.)")
+            msgBox.exec()
+            return None
 
         # Reset self.view and self.choice_combo before reupdating it based on graph of choice.
         #For some reason, calling self.view = GraphView(primal_graph) does not work. Had to do this instead.
@@ -535,7 +557,8 @@ class MPSLoaderApp(QWidget):
         self.view._scene = QGraphicsScene()
         self.view.setScene(self.view._scene)
         self.view._load_graph()
-        self.choice_combo.setCurrentText("circular") #this will inadvertently call set_nx_layout("circular")
+        self.view.set_nx_layout("circular") # added just in case...
+        self.choice_combo.setCurrentText("circular") 
 
          # Calculate basic statistics and store it in text.
         self.text_area.clear()
@@ -553,9 +576,7 @@ class MPSLoaderApp(QWidget):
             from networkx.algorithms.approximation.treewidth import treewidth_min_fill_in
             treewidth_calculated, _ = treewidth_min_fill_in(updated_graph)
         except:
-            treewidth_calculated = "N/A"
-            print("⚠️ Treewidth estimation not available — requires `networkx >= 2.6`.")
-            print("🧠 Explanation: Treewidth is NP-hard to compute exactly, so approximation is used.\n")
+            treewidth_calculated = "⚠️ Treewidth estimation not available — requires `networkx >= 2.6`."
 
         info_text = (
             f"Loaded MPS file: {self.filename}\n"
@@ -570,9 +591,39 @@ class MPSLoaderApp(QWidget):
         )
         self.text_area.setPlainText(info_text)
 
+    # Exports current graph view as JPEG.
+    def export_chart_as_image(self):
+        if not self.view:
+            msgBox = QMessageBox()
+            msgBox.setWindowTitle("")
+            msgBox.setText("❌ No graph to export.")
+            msgBox.exec()
+            # THIS SHOULD NEVER COME UP.
+            return
+        filename, _ = QFileDialog.getSaveFileName(self, "Save Chart as JPEG", "plot.jpeg", "JPEG Image (*.jpeg *.jpg)")
+        if filename:
+            pixmap = self.view.grab()
+            if not pixmap.save(filename, "JPEG"):
+                msgBox = QMessageBox()
+                msgBox.setWindowTitle("")
+                msgBox.setText("❌ Failed to save image.")
+                msgBox.exec()
+            else:
+                msgBox = QMessageBox()
+                msgBox.setWindowTitle("")
+                msgBox.setText(f"✅ Saved: {filename}")
+                msgBox.exec()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = MPSLoaderApp()
-    window.show()
-    sys.exit(app.exec())
+    #Replace this with raw file version of whatever test file you wish to load this on. This code is not meant to run on its own.
+    try:
+        window = GraphViewer(r"C:\Users\Daniel_Hwang_GATech\Downloads\gen-ip054.mps\gen-ip054.mps")
+        window.show()
+        sys.exit(app.exec())
+    except:
+        print("NOTE TO USER: Modify the line `window = GraphViewer(your_file_path_here)` with a valid file name.")
+
+# Notes to self on things to improve the graph viewer.
+# Work on pan/zoom functionality.
+# Improve layout and graphics for visualizer. You may have to resort to NetworkX default plotting. Use mps_gui_numerical.py for just plotting if possible.
