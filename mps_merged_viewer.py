@@ -32,20 +32,12 @@ class MergedMPSViewer(QWidget):
         self.setLayout(self.layout)
 
         # Add toolbar
-        control_layout = QHBoxLayout()
+        self.control_layout = QHBoxLayout()
         self.load_button = QPushButton("Load MPS File")
         self.load_button.clicked.connect(self.load_mps_file)
-        control_layout.addWidget(self.load_button)
-
-        self.selector = QComboBox()
-        self.selector.addItems(["Primal graph", "Dual graph", "Incidence graph", "Binary Scatterplot", "Magnitude Scatterplot"])
-        self.selector.currentIndexChanged.connect(self.update_selection)
-        control_layout.addWidget(self.selector)
-
-        self.export_button = QPushButton("Export Matrix to CSV")
-        self.export_button.clicked.connect(self.export_matrix_to_csv)
-        control_layout.addWidget(self.export_button)
-        self.layout.addLayout(control_layout)
+        self.control_layout.addWidget(self.load_button)
+        self.layout.addLayout(self.control_layout)
+        # We will add self.selector (allowing you to toggle between different options) AND export matrix to csv feature during load_mps_file.
 
         # Add stacked widget
         self.stacked_widget = QStackedWidget()
@@ -62,7 +54,16 @@ class MergedMPSViewer(QWidget):
         self.stacked_widget.addWidget(self.matrix_viewer)
         self.stacked_widget.addWidget(self.graph_viewer)
         self.stacked_widget.setCurrentWidget(self.matrix_viewer)
-        self.selector.setCurrentText("Binary Scatterplot")
+
+        # Initialize self.selector and self.export button.
+        self.selector = QComboBox() 
+        self.selector.addItems(["Primal graph", "Dual graph", "Incidence graph", "Binary Scatterplot", "Magnitude Scatterplot"])
+        self.selector.currentIndexChanged.connect(self.update_selection)
+        self.selector.setCurrentText("Binary Scatterplot") # Initialize as binary scatterplot.
+        self.control_layout.addWidget(self.selector)
+        self.export_button = QPushButton("Export Matrix to CSV")
+        self.export_button.clicked.connect(self.export_matrix_to_csv)
+        self.control_layout.addWidget(self.export_button)
 
     def update_selection(self):
         if self.selector.currentText() == "Primal graph":

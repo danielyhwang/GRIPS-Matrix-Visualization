@@ -457,8 +457,8 @@ class GraphViewer(QWidget):
         # Create a button where you can export current graph to JPEG.
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
-        self.export_image_button = QPushButton("Export Plot to JPEG")
-        self.export_image_button.clicked.connect(self.export_chart_as_image)
+        self.export_image_button = QPushButton("Export Graph to JPEG")
+        self.export_image_button.clicked.connect(self.export_graph_as_image)
         bottom_layout.addWidget(self.export_image_button)
 
         # Testing functionality of GraphViewer.
@@ -592,7 +592,7 @@ class GraphViewer(QWidget):
         self.text_area.setPlainText(info_text)
 
     # Exports current graph view as JPEG.
-    def export_chart_as_image(self):
+    def export_graph_as_image(self):
         if not self.view:
             msgBox = QMessageBox()
             msgBox.setWindowTitle("")
