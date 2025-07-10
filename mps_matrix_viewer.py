@@ -45,12 +45,12 @@ class MatrixViewer(QWidget):
         self.layout.addLayout(bottom_layout)
 
         # Testing functionality of GraphViewer.
-        self.binary_test_button = QPushButton("Binary Scatterplot")
-        self.magnitude_test_button = QPushButton("Magnitude Scatterplot")
-        self.binary_test_button.clicked.connect(lambda: self.update_plot("Binary Scatterplot"))
-        self.magnitude_test_button.clicked.connect(lambda: self.update_plot("Magnitude Scatterplot"))
-        bottom_layout.addWidget(self.binary_test_button)
-        bottom_layout.addWidget(self.magnitude_test_button)
+        #self.binary_test_button = QPushButton("Binary Scatterplot")
+        #self.magnitude_test_button = QPushButton("Magnitude Scatterplot")
+        #self.binary_test_button.clicked.connect(lambda: self.update_plot("Binary Scatterplot"))
+        #self.magnitude_test_button.clicked.connect(lambda: self.update_plot("Magnitude Scatterplot"))
+        #bottom_layout.addWidget(self.binary_test_button)
+        #bottom_layout.addWidget(self.magnitude_test_button)
         
         # Read in statistics.
         model = Model()
