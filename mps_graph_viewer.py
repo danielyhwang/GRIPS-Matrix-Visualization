@@ -35,7 +35,7 @@ class Node(QGraphicsObject):
         super().__init__(parent)
         self._name = name
         self._edges = []
-        self._color = "#5AD469"
+        self._color = "#6495ED"
         self._radius = 30 #ADJUST THIS VARIABLE TO CHANGE NODE SIZE.
         self._rect = QRectF(0, 0, self._radius * 2, self._radius * 2)
 
@@ -73,7 +73,7 @@ class Node(QGraphicsObject):
         painter.setBrush(QBrush(QColor(self._color)))
         painter.drawEllipse(self.boundingRect())
         painter.setPen(QPen(QColor("black"))) #MODIFY TO CHANGE TEXT COLOR
-        painter.drawText(self.boundingRect(), 0, str(self._name)) 
+        painter.drawText(self.boundingRect(), Qt.AlignmentFlag.AlignCenter, str(self._name)) 
 
     def add_edge(self, edge):
         """Add an edge to this node
@@ -113,7 +113,7 @@ class Edge(QGraphicsItem):
         self._dest = dest
 
         self._tickness = 2
-        self._color = "#2BB53C"
+        self._color = "#898989"
         self._arrow_size = 20
 
         self._source.add_edge(self)
@@ -222,14 +222,11 @@ class Edge(QGraphicsItem):
                 )
             )
             painter.drawLine(self._line)
-            self._draw_arrow(painter, self._line.p1(), self._arrow_target())
+            #self._draw_arrow(painter, self._line.p1(), self._arrow_target()) #our edges are undirected
             self._arrow_target()
 
 
 class GraphView(QGraphicsView):
-    # This part was merged with the Pan/Zoom code.
-    # NOTE THESE ARE EDITS ARE IN PROGRESS.
-
     def __init__(self, graph: nx.DiGraph, parent=None):
         """GraphView constructor
 
@@ -242,6 +239,9 @@ class GraphView(QGraphicsView):
         self._graph = graph
         self._scene = QGraphicsScene()
         self.setScene(self._scene)
+
+        # Enable dragging
+        self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
 
         """
         Following code sets up pan/zoom functionality.
@@ -264,7 +264,7 @@ class GraphView(QGraphicsView):
         """
 
         # Used to add space between nodes
-        self._graph_scale = 100 # MODIFY THIS TO CHANGE SPACING
+        self._graph_scale = 500 # MODIFY THIS TO CHANGE SPACING
 
         # Map node name to Node object {str=>Node}
         self._nodes_map = {}
@@ -334,20 +334,28 @@ class GraphView(QGraphicsView):
     def _load_graph(self):
         """Load graph into QGraphicsScene using Node class and Edge class"""
 
-        self.scene().clear()
+        self._scene.clear()
         self._nodes_map.clear()
 
         # Add nodes
         for node in self._graph:
             item = Node(node)
-            self.scene().addItem(item)
+            self._scene.addItem(item)
             self._nodes_map[node] = item
 
         # Add edges
         for a, b in self._graph.edges:
             source = self._nodes_map[a]
             dest = self._nodes_map[b]
-            self.scene().addItem(Edge(source, dest))
+            self._scene.addItem(Edge(source, dest))
+
+        # print(self.size())
+        # print(self.viewport().size())
+        # Remaining things to do
+        # self.setScene(self._scene)
+        # self.fitInView(self.sceneRect())
+        # Rescale the QGraphicsView to fit whole scene in view.
+        # Enable zoom functionality
 
 # The following code contains a self-contained graph visualization widget, which allows it
 # to be imported as a module in our mps_merged_viewer.py file. Note that it is initialized by feeding
@@ -407,6 +415,11 @@ class GraphViewer(QWidget):
 
         # Create GraphView based on primal graph.
         self.view = GraphView(primal_graph)
+
+        # Create GraphCanvas using matplotlib. Old code kept for testing purposes.
+        # self.figure, self.ax = plt.subplots()
+        # self.canvas = FigureCanvas(self.figure)
+        # self.layout.addWidget(self.canvas)
 
          # Calculate basic statistics and store it in text.
         self.text_area.clear()
@@ -550,6 +563,12 @@ class GraphViewer(QWidget):
             + "(Devs: This means that you tried calling load_graph_type with an option that is currently not implemented.)")
             msgBox.exec()
             return None
+        
+        ## === Old Draw Graph Code kept for preservation. ===
+        #self.ax.clear()
+        #pos = nx.spring_layout(G, seed=42)
+        #nx.draw(G, pos, ax=self.ax, with_labels=True, node_color='skyblue', edge_color='gray', font_size=7)
+        #self.canvas.draw()
 
         # Reset self.view and self.choice_combo before reupdating it based on graph of choice.
         #For some reason, calling self.view = GraphView(primal_graph) does not work. Had to do this instead.
@@ -623,7 +642,3 @@ if __name__ == "__main__":
         sys.exit(app.exec())
     except:
         print("NOTE TO USER: Modify the line `window = GraphViewer(your_file_path_here)` with a valid file name.")
-
-# Notes to self on things to improve the graph viewer.
-# Work on pan/zoom functionality.
-# Improve layout and graphics for visualizer. You may have to resort to NetworkX default plotting. Use mps_gui_numerical.py for just plotting if possible.
