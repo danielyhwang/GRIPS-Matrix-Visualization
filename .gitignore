@@ -185,3 +185,5 @@ benchmark/
 output/
 mps/
 benchmark.zip
+~$summary_statistics.xlsx
+summary_statistics.xlsx

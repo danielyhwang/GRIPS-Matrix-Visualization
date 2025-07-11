@@ -11,7 +11,8 @@ PyQt to create the graphical interface, PySciPoPT to load in the MIPS model, alo
 1. Clone this repo. 
 2. Open Terminal (Mac/Linux) or Command Prompt (Windows) and change directory to current repo. One way to do this via GitHub Desktop is to right click on the repo name, click "Copy repo path" and run `cd insert_repo_path_here`.
 3. For first-time use (skip if not needed): Create virtual environment by running `python -m venv env`. Activate virtual environment by running `source env/bin/activate` (Mac) or `env\Scripts\activate.bat` (Windows). Run `pip install -r requirements.txt` to load in all libraries in use. For developers, periodically update libraries used by running `pip freeze > requirements.txt`.
-4. Now run `python mps_graph.py` or `python mps_gui.py`.
+4. Now run `python mps_merged_viewer.py` (this will open a matrix visualization tool that visualizes the matrix as a black-white scatterplot or a magnitude scatterplot, also visualizes the primal graph, dual graph, and incidence graph associated with the matrix) or `python mps_benchmark_statistics.py` (requires download of `benchmark.zip` to this folder, script will process each mps file in benchmark.zip (restricted to files up to a certain number of constraints and variables)).
+5. Other files in this repository involve data analysis on the `summary_statistics.csv` file obtained by running `python mps_benchmark_statistics.py`.
 
 ## Developer's Notes: GitHub Desktop workflow.
 1. Clone the repo if you haven't already. Remember to fetch origin to make sure your files are synced with the repo!!!
