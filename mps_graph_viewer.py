@@ -467,8 +467,11 @@ class GraphViewer(QWidget):
         self.choice_combo.setCurrentText("circular")
         #self.view.set_nx_layout("circular") # Not necessary?
 
-        # Create a button where you can export current graph to JPEG.
+        # Create a button where you can reset view AND another button where you can export current graph to JPEG.
         bottom_layout = QHBoxLayout()
+        self.reset_view_button = QPushButton("Reset View")
+        self.reset_view_button.clicked.connect(self.reset_graph_view)
+        bottom_layout.addWidget(self.reset_view_button)
         bottom_layout.addStretch()
         self.export_image_button = QPushButton("Export Graph to JPEG")
         self.export_image_button.clicked.connect(self.export_graph_as_image)
@@ -632,6 +635,10 @@ class GraphViewer(QWidget):
                 msgBox.setWindowTitle("")
                 msgBox.setText(f"✅ Saved: {filename}")
                 msgBox.exec()
+    
+    # Reset graph view.
+    def reset_graph_view(self):
+        self.view.set_nx_layout(self.choice_combo.currentText())
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

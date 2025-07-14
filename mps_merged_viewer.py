@@ -26,7 +26,7 @@ class MergedMPSViewer(QWidget):
         self.resize(1000, 800)
 
         self.A_sparse = None
-        self.last_plot_data = []
+        #self.last_plot_data = [] (now used in MatrixViewer)
 
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
@@ -97,14 +97,29 @@ class MergedMPSViewer(QWidget):
         return None
 
     def export_matrix_to_csv(self):
-        if not self.last_plot_data:
+        if not self.matrix_viewer.last_plot_data:
+            msgBox = QMessageBox()
+            msgBox.setWindowTitle("")
+            msgBox.setText("❌ No data to export.")
+            msgBox.exec()
+            # THIS SHOULD NEVER RUN
             return
         filename, _ = QFileDialog.getSaveFileName(self, "Save Matrix Data", "", "CSV Files (*.csv)")
         if filename:
-            with open(filename, "w", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow(["Row", "Column", "Value"])
-                writer.writerows(self.last_plot_data)
+            try:
+                with open(filename, "w", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Row", "Column", "Value"])
+                    writer.writerows(self.matrix_viewer.last_plot_data)
+                msgBox = QMessageBox()
+                msgBox.setWindowTitle("")
+                msgBox.setText(f"✅ Saved: {filename}")
+                msgBox.exec()
+            except Exception:
+                msgBox = QMessageBox()
+                msgBox.setWindowTitle("")
+                msgBox.setText("❌ Failed to save data.")
+                msgBox.exec()
     
 if __name__ == "__main__":
     app = QApplication(sys.argv)
