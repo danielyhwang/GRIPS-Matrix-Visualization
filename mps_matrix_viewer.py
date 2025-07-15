@@ -252,12 +252,16 @@ class MatrixViewer(QWidget):
                 msgBox.setText(f"✅ Saved: {filename}")
                 msgBox.exec()
 
+class FileLoader(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.filename, _ = QFileDialog.getOpenFileName(self, "Open MPS File", "", "MPS Files (*.mps *.MPS);;All Files (*)")
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     #Replace this with raw file version of whatever test file you wish to load this on. This code is not meant to run on its own.
-    try:
-        window = MatrixViewer(r"C:\Users\Daniel_Hwang_GATech\Downloads\gen-ip054.mps\gen-ip054.mps")
+    file_window = FileLoader()
+    if file_window.filename:
+        window = MatrixViewer(file_window.filename)
         window.show()
-        sys.exit(app.exec())
-    except:
-        print("NOTE TO USER: Modify the line `window = MatrixViewer(your_file_path_here)` with a valid file name.")
+    sys.exit(app.exec())
