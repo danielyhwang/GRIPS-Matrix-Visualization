@@ -44,7 +44,7 @@ class MatrixViewer(QWidget):
         bottom_layout.addWidget(self.export_image_button)
         self.layout.addLayout(bottom_layout)
 
-        # Testing functionality of GraphViewer.
+        # Testing functionality of MatrixViewer.
         #self.binary_test_button = QPushButton("Binary Scatterplot")
         #self.magnitude_test_button = QPushButton("Magnitude Scatterplot")
         #self.binary_test_button.clicked.connect(lambda: self.update_plot("Binary Scatterplot"))
@@ -259,7 +259,6 @@ class FileLoader(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    #Replace this with raw file version of whatever test file you wish to load this on. This code is not meant to run on its own.
     file_window = FileLoader()
     if file_window.filename:
         window = MatrixViewer(file_window.filename)

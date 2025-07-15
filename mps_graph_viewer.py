@@ -647,7 +647,6 @@ class FileLoader(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    #Replace this with raw file version of whatever test file you wish to load this on. This code is not meant to run on its own.
     file_window = FileLoader()
     if file_window.filename:
         window = GraphViewer(file_window.filename)
