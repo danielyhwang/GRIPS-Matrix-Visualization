@@ -1,3 +1,4 @@
+
 # Merged MPS Matrix Viewer with Stats + Clickable Scatterplot
 import sys
 import numpy as np
@@ -16,16 +17,21 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import svds
 
 class MatrixViewer(QWidget):
-    def __init__(self, filename):
+    def __init__(self):
         super().__init__()
 
+        self.setWindowTitle("MPS Matrix Viewer")
         self.A_sparse = None
         self.last_plot_data = []
 
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
 
-        # Load in stats table, and chart view, along with export button.
+        # Add Load File button at the top
+        self.load_button = QPushButton("📂 Load MPS File")
+        self.load_button.clicked.connect(self.prompt_and_load_file)
+        self.layout.addWidget(self.load_button)
+
         self.stats_table = QTableWidget()
         self.stats_table.setColumnCount(2)
         self.stats_table.setHorizontalHeaderLabels(["Property", "Value"])
@@ -34,25 +40,40 @@ class MatrixViewer(QWidget):
 
         self.chart_view = QChartView()
         self.chart_view.setRenderHint(QPainter.Antialiasing)
+        
         self.layout.addWidget(self.chart_view)
 
-        # Add in export button.
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
         self.export_image_button = QPushButton("Export Plot to JPEG")
         self.export_image_button.clicked.connect(self.export_chart_as_image)
         bottom_layout.addWidget(self.export_image_button)
-        self.layout.addLayout(bottom_layout)
 
-        # Testing functionality of GraphViewer.
         self.binary_test_button = QPushButton("Binary Scatterplot")
         self.magnitude_test_button = QPushButton("Magnitude Scatterplot")
         self.binary_test_button.clicked.connect(lambda: self.update_plot("Binary Scatterplot"))
         self.magnitude_test_button.clicked.connect(lambda: self.update_plot("Magnitude Scatterplot"))
         bottom_layout.addWidget(self.binary_test_button)
         bottom_layout.addWidget(self.magnitude_test_button)
-        
-        # Read in statistics.
+
+        self.layout.addLayout(bottom_layout)
+
+    
+    def prompt_and_load_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select MPS File",
+            "",
+            "MPS Files (*.mps);;All Files (*)"
+        )
+        if file_path:
+            try:
+                self.loadMPSFile(file_path)
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"❌ Failed to load file:\n{e}")
+
+    
+    def loadMPSFile(self, filename):
         model = Model()
         model.readProblem(filename)
         variables = model.getVars()
@@ -71,10 +92,9 @@ class MatrixViewer(QWidget):
                 col_inds.append(j)
                 data.append(coef)
 
-        # Read in sparse matrix.
         self.A_sparse = csr_matrix((data, (row_inds, col_inds)), shape=(n_cons, n_vars))
 
-        # Load in statistics.
+        # Load stats
         total_entries = n_cons * n_vars
         non_zero = len(data)
         sparsity = 100 * (1 - non_zero / total_entries)
@@ -127,6 +147,7 @@ class MatrixViewer(QWidget):
 
         self.update_plot("Binary Scatterplot")
 
+        
     def update_plot(self, type_of_plot):
         if self.A_sparse is None:
             return
@@ -166,29 +187,48 @@ class MatrixViewer(QWidget):
         chart.axisY().setReverse(True)
         self.chart_view.setChart(chart)
 
+
     def plot_magnitude_scatterplot(self):
         rows, cols = self.A_sparse.nonzero()
         vals = self.A_sparse.data
         entries = list(zip(rows, cols, vals))
+
         if len(entries) > 50_000:
             entries = random.sample(entries, 50_000)
+
         self.last_plot_data = [(r, c, v) for r, c, v in entries]
 
         chart = QChart()
-        chart.setTitle("Magnitude Scatterplot (Blue = −, Red = +, Darker = Large |val|)")
+        chart.setTitle("Magnitude Scatterplot (Color = Relative, Shape: Square = −, Circle = +)")
         chart.legend().hide()
 
-        max_val = max(abs(v) for _, _, v in entries) if entries else 1.0
+        all_vals = [v for _, _, v in entries]
+        min_val = min(all_vals)
+        max_val = max(all_vals)
+        value_range = max_val - min_val if max_val != min_val else 1.0
 
         for r, c, v in entries:
-            normalized = min(abs(v) / max_val, 1.0)
-            alpha = int(255 * (normalized ** 0.5))
+            # Normalize relative to min/max
+            norm = (v - min_val) / value_range  # 0 = bluest, 1 = reddest
+            r_val = int(255 * norm)
+            b_val = int(255 * (1 - norm))
+            color = QColor(r_val, 0, b_val)
+
+            # Optionally add transparency based on magnitude
+            alpha = int(255 * (abs(v) / max(abs(min_val), abs(max_val)))**0.5)
             alpha = max(alpha, 50)
-            color = QColor(255, 0, 0, alpha) if v > 0 else QColor(0, 0, 255, alpha)
+            color.setAlpha(alpha)
 
             series = QScatterSeries()
             series.setMarkerSize(6)
             series.setColor(color)
+
+            # Keep shape logic based on sign
+            if v > 0:
+                series.setMarkerShape(QScatterSeries.MarkerShapeCircle)
+            else:
+                series.setMarkerShape(QScatterSeries.MarkerShapeRectangle)
+
             series.append(QPointF(c, r))
             series.clicked.connect(self.on_point_clicked)
             chart.addSeries(series)
@@ -198,6 +238,7 @@ class MatrixViewer(QWidget):
         chart.axisY().setTitleText("Constraints (Rows)")
         chart.axisY().setReverse(True)
         self.chart_view.setChart(chart)
+
 
     def on_point_clicked(self, point):
         row = int(point.y())
@@ -221,13 +262,16 @@ class MatrixViewer(QWidget):
         row_stats = stats(r_vals)
         col_stats = stats(c_vals)
 
+        entry_val = A[row, col]
+
         message = (
-            f"<b>Clicked Entry</b>: Row {row}, Column {col}<br><br>"
+            f"<b>Clicked Entry</b>: Row {row}, Column {col}, Value: {entry_val:.4g}<br><br>"
             f"<b>Row {row} Stats:</b><br>" +
             "".join(f"{k}: {v:.4g}<br>" for k, v in row_stats.items()) +
-            "<br><b>Column {col} Stats:</b><br>" +
+            f"<br><b>Column {col} Stats:</b><br>" +
             "".join(f"{k}: {v:.4g}<br>" for k, v in col_stats.items())
         )
+
         QMessageBox.information(self, "Matrix Entry Statistics", message)
 
     def export_chart_as_image(self):
@@ -252,12 +296,14 @@ class MatrixViewer(QWidget):
                 msgBox.setText(f"✅ Saved: {filename}")
                 msgBox.exec()
 
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    #Replace this with raw file version of whatever test file you wish to load this on. This code is not meant to run on its own.
-    try:
-        window = MatrixViewer(r"/Users/kathymo/Downloads/gen-ip054.mps")
-        window.show()
-        sys.exit(app.exec())
-    except:
-        print("NOTE TO USER: Modify the line `window = MatrixViewer(your_file_path_here)` with a valid file name.")
+    window = MatrixViewer()
+    window.show()
+    sys.exit(app.exec())
+
+
+# color each row and column based on max/min coefficient ratio
+# add gradient for magnitude scatterplot
+# Try to add zooming in/out functionality to scatterplots 
