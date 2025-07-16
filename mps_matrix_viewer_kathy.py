@@ -6,11 +6,14 @@ import random
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QTextEdit, QFileDialog,
     QComboBox, QHBoxLayout, QToolTip, QSizePolicy, QTableWidget, QTableWidgetItem,
-    QHeaderView, QMessageBox
+    QHeaderView, QMessageBox, QGraphicsRectItem, QGraphicsTextItem
+
 )
 from PySide6.QtCharts import QChart, QChartView, QScatterSeries
-from PySide6.QtCore import QPointF
-from PySide6.QtGui import QPainter, QColor, QCursor
+
+from PySide6.QtCore import QPointF, Qt
+from PySide6.QtGui import QPainter, QColor, QCursor, QLinearGradient, QBrush, QColor
+
 from pyscipopt import Model
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import svds
@@ -173,7 +176,7 @@ class MatrixViewer(QWidget):
         chart.legend().hide()
 
         series = QScatterSeries()
-        series.setMarkerSize(6)
+        series.setMarkerSize(10)
         series.setColor(QColor("black"))
         for r, c in indices:
             series.append(QPointF(c, r))
@@ -199,7 +202,8 @@ class MatrixViewer(QWidget):
 
         chart = QChart()
         chart.setTitle("Magnitude Scatterplot (Color = Relative, Shape: Square = −, Circle = +)")
-        chart.legend().hide()
+        chart.legend().setVisible(True)
+        chart.legend().setAlignment(Qt.AlignBottom)
 
         all_vals = [v for _, _, v in entries]
         min_val = min(all_vals)
@@ -207,22 +211,19 @@ class MatrixViewer(QWidget):
         value_range = max_val - min_val if max_val != min_val else 1.0
 
         for r, c, v in entries:
-            # Normalize relative to min/max
-            norm = (v - min_val) / value_range  # 0 = bluest, 1 = reddest
+            norm = (v - min_val) / value_range  # Normalize to 0–1
             r_val = int(255 * norm)
             b_val = int(255 * (1 - norm))
             color = QColor(r_val, 0, b_val)
 
-            # Optionally add transparency based on magnitude
             alpha = int(255 * (abs(v) / max(abs(min_val), abs(max_val)))**0.5)
             alpha = max(alpha, 50)
             color.setAlpha(alpha)
 
             series = QScatterSeries()
-            series.setMarkerSize(6)
+            series.setMarkerSize(10)
             series.setColor(color)
 
-            # Keep shape logic based on sign
             if v > 0:
                 series.setMarkerShape(QScatterSeries.MarkerShapeCircle)
             else:
@@ -236,8 +237,24 @@ class MatrixViewer(QWidget):
         chart.axisX().setTitleText("Variables (Columns)")
         chart.axisY().setTitleText("Constraints (Rows)")
         chart.axisY().setReverse(True)
-        self.chart_view.setChart(chart)
 
+        # --- Add legend with min and max ---
+        min_series = QScatterSeries()
+        min_series.setName(f"Min: {min_val:.2g}")
+        min_series.setMarkerSize(10)
+        min_series.setColor(QColor(0, 0, 255, 200))
+        min_series.append(QPointF(0, 0))  # Dummy point
+
+        max_series = QScatterSeries()
+        max_series.setName(f"Max: {max_val:.2g}")
+        max_series.setMarkerSize(10)
+        max_series.setColor(QColor(255, 0, 0, 200))
+        max_series.append(QPointF(0, 0))  # Dummy point
+
+        chart.addSeries(min_series)
+        chart.addSeries(max_series)
+
+        self.chart_view.setChart(chart)
 
     def on_point_clicked(self, point):
         row = int(point.y())
