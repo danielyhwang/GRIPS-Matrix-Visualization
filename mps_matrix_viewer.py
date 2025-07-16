@@ -222,10 +222,11 @@ class MatrixViewer(QWidget):
         col_stats = stats(c_vals)
 
         message = (
-            f"<b>Clicked Entry</b>: Row {row}, Column {col}<br><br>"
+            f"<b>Clicked Entry</b>: Row {row}, Column {col}<br>" +
+            f"<b>Value</b>: {A[row][col]}<br><br>" + 
             f"<b>Row {row} Stats:</b><br>" +
             "".join(f"{k}: {v:.4g}<br>" for k, v in row_stats.items()) +
-            "<br><b>Column {col} Stats:</b><br>" +
+            f"<br><b>Column {col} Stats:</b><br>" +
             "".join(f"{k}: {v:.4g}<br>" for k, v in col_stats.items())
         )
         QMessageBox.information(self, "Matrix Entry Statistics", message)
