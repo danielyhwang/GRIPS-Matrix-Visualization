@@ -148,7 +148,7 @@ class MatrixViewer(QWidget):
             ("Total entries", self.A_sparse.shape[0] * self.A_sparse.shape[1]),
             ("Non-zero entries", self.A_sparse.nnz),
             ("Avg non-zeros per row", np.mean(np.diff(self.A_sparse.indptr))),
-            ("Avg non-zeros per column", np.mean(np.diff(self.A_sparse.T.indptr))),
+            ("Avg non-zeros per column", np.mean(np.diff(self.A_sparse.indptr)) * A_sparse.shape[0] / A_sparse.shape[1]), #For some reason, np.mean(np.diff(self.A_sparse.T.indptr)) does not work, so we manually rescale by num_rows/num_cols.
             ("Sparsity (%)", 100 * (1 - self.A_sparse.nnz / (self.A_sparse.shape[0] * self.A_sparse.shape[1]))),
             ("Row NNZ Variance", np.var(np.diff(self.A_sparse.indptr)))
             # Following properties are commented out for historical preservation
@@ -211,7 +211,7 @@ class MatrixViewer(QWidget):
         chart.legend().hide()
 
         series = QScatterSeries()
-        series.setMarkerSize(6)
+        series.setMarkerSize(10)
         series.setColor(QColor("black"))
         for r, c in zip(rows, cols):
             series.append(QPointF(c, r))
