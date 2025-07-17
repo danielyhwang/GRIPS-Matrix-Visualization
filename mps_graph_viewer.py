@@ -365,7 +365,7 @@ class GraphViewer(QWidget):
     Initializes a GraphView and TextBox where we can store important information.
     Input: filename - name of a file passed in from QFileDialog.
     """
-    def __init__(self, filename):
+    def __init__(self, filename, include_toggle_buttons = True):
         self.filename = filename
 
         super().__init__()
@@ -473,30 +473,30 @@ class GraphViewer(QWidget):
         self.reset_view_button.clicked.connect(self.reset_graph_view)
         bottom_layout.addWidget(self.reset_view_button)
         bottom_layout.addStretch()
+
+        # Include toggle buttons, only if include_toggle_buttons is on.
+        self.primal_graph_test_button = QPushButton("Primal Graph")
+        self.dual_graph_test_button = QPushButton("Dual Graph")
+        self.incidence_graph_test_button = QPushButton("Incidence Graph")
+        # Make sure that these match the options in self.selector under the mps_merged_viewer.py file.
+        self.primal_graph_test_button.clicked.connect(lambda: self.load_graph_type("Primal graph"))
+        self.dual_graph_test_button.clicked.connect(lambda: self.load_graph_type("Dual graph"))
+        self.incidence_graph_test_button.clicked.connect(lambda: self.load_graph_type("Incidence graph"))
+        bottom_layout.addWidget(self.primal_graph_test_button)
+        bottom_layout.addWidget(self.dual_graph_test_button)
+        bottom_layout.addWidget(self.incidence_graph_test_button)
+        bottom_layout.addStretch()
+
         self.export_image_button = QPushButton("Export Graph to JPEG")
         self.export_image_button.clicked.connect(self.export_graph_as_image)
         bottom_layout.addWidget(self.export_image_button)
-
-        # Testing functionality of GraphViewer.
-        #self.primal_graph_test_button = QPushButton("Primal Graph")
-        #self.dual_graph_test_button = QPushButton("Dual Graph")
-        #self.incidence_graph_test_button = QPushButton("Incidence Graph")
-        #self.silly_test_button = QPushButton("Silly")
-        #self.primal_graph_test_button.clicked.connect(lambda: self.load_graph_type("Primal graph"))
-        #self.dual_graph_test_button.clicked.connect(lambda: self.load_graph_type("Dual graph"))
-        #self.incidence_graph_test_button.clicked.connect(lambda: self.load_graph_type("Incidence graph"))
-        #self.silly_test_button.clicked.connect(lambda: self.load_graph_type("Silly"))
-        #bottom_layout.addWidget(self.primal_graph_test_button)
-        #bottom_layout.addWidget(self.dual_graph_test_button)
-        #bottom_layout.addWidget(self.incidence_graph_test_button)
-        #bottom_layout.addWidget(self.silly_test_button)
 
         self.layout.addLayout(bottom_layout)
 
     def load_graph_type(self, type_of_graph):
         updated_graph = nx.Graph()
 
-        
+        # If you are using merged viewer, make sure that these match the items in self.selector and update_selection.
         if type_of_graph == "Primal graph":
             # Build primal graph. The set of vertices is the set of columns c_k, the set of edges is the set (c_k, c_l) such that there exists 
             # a row such that A[r][c_k] != 0 and A[r][c_l] != 0
@@ -649,6 +649,6 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     file_window = FileLoader()
     if file_window.filename:
-        window = GraphViewer(file_window.filename)
+        window = GraphViewer(file_window.filename, include_toggle_buttons=True)
         window.show()
     sys.exit(app.exec())

@@ -82,11 +82,11 @@ def process_mps(file_path, stem):
         terms = model.getValsLinear(cons)
         for var_name, coef in terms.items():
             j = var_index[var_name]
-            row_inds.append(i)
-            col_inds.append(j)
-            data.append(coef)
             if coef != 0:
                 number_of_nonzeros += 1
+                row_inds.append(i)
+                col_inds.append(j)
+                data.append(coef)
     
     sparsity = number_of_nonzeros/n_vars/n_cons
 

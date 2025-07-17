@@ -49,15 +49,15 @@ class MergedMPSViewer(QWidget):
             return
         
         # Initialize stacked widget with matrix view.
-        self.matrix_viewer = MatrixViewer(filename)
-        self.graph_viewer = GraphViewer(filename)
+        self.matrix_viewer = MatrixViewer(filename, include_toggle_buttons=False)
+        self.graph_viewer = GraphViewer(filename, include_toggle_buttons=False)
         self.stacked_widget.addWidget(self.matrix_viewer)
         self.stacked_widget.addWidget(self.graph_viewer)
         self.stacked_widget.setCurrentWidget(self.matrix_viewer)
 
         # Initialize self.selector and self.export button.
         self.selector = QComboBox() 
-        self.selector.addItems(["Primal graph", "Dual graph", "Incidence graph", "Binary Scatterplot", "Magnitude Scatterplot"])
+        self.selector.addItems(["Primal graph", "Dual graph", "Incidence graph", "Binary Scatterplot", "Magnitude Scatterplot", "Row-Scaled Heatmap"])
         self.selector.currentIndexChanged.connect(self.update_selection)
         self.selector.setCurrentText("Binary Scatterplot") # Initialize as binary scatterplot.
         self.control_layout.addWidget(self.selector)
@@ -86,6 +86,10 @@ class MergedMPSViewer(QWidget):
             if self.stacked_widget.currentWidget() != self.matrix_viewer:
                 self.stacked_widget.setCurrentWidget(self.matrix_viewer)
             self.matrix_viewer.update_plot("Magnitude Scatterplot")
+        elif self.selector.currentText() == "Row-Scaled Heatmap":
+            if self.stacked_widget.currentWidget() != self.matrix_viewer:
+                self.stacked_widget.setCurrentWidget(self.matrix_viewer)
+            self.matrix_viewer.update_plot("Row-Scaled Heatmap")
         
         else:
             msgBox = QMessageBox()
