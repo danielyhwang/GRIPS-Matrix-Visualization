@@ -475,17 +475,18 @@ class GraphViewer(QWidget):
         bottom_layout.addStretch()
 
         # Include toggle buttons, only if include_toggle_buttons is on.
-        self.primal_graph_test_button = QPushButton("Primal Graph")
-        self.dual_graph_test_button = QPushButton("Dual Graph")
-        self.incidence_graph_test_button = QPushButton("Incidence Graph")
-        # Make sure that these match the options in self.selector under the mps_merged_viewer.py file.
-        self.primal_graph_test_button.clicked.connect(lambda: self.load_graph_type("Primal graph"))
-        self.dual_graph_test_button.clicked.connect(lambda: self.load_graph_type("Dual graph"))
-        self.incidence_graph_test_button.clicked.connect(lambda: self.load_graph_type("Incidence graph"))
-        bottom_layout.addWidget(self.primal_graph_test_button)
-        bottom_layout.addWidget(self.dual_graph_test_button)
-        bottom_layout.addWidget(self.incidence_graph_test_button)
-        bottom_layout.addStretch()
+        if include_toggle_buttons:
+            self.primal_graph_test_button = QPushButton("Primal Graph")
+            self.dual_graph_test_button = QPushButton("Dual Graph")
+            self.incidence_graph_test_button = QPushButton("Incidence Graph")
+            # Make sure that these match the options in self.selector under the mps_merged_viewer.py file.
+            self.primal_graph_test_button.clicked.connect(lambda: self.load_graph_type("Primal graph"))
+            self.dual_graph_test_button.clicked.connect(lambda: self.load_graph_type("Dual graph"))
+            self.incidence_graph_test_button.clicked.connect(lambda: self.load_graph_type("Incidence graph"))
+            bottom_layout.addWidget(self.primal_graph_test_button)
+            bottom_layout.addWidget(self.dual_graph_test_button)
+            bottom_layout.addWidget(self.incidence_graph_test_button)
+            bottom_layout.addStretch()
 
         self.export_image_button = QPushButton("Export Graph to JPEG")
         self.export_image_button.clicked.connect(self.export_graph_as_image)
