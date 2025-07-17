@@ -310,7 +310,8 @@ class MatrixViewer(QWidget):
             }
 
         msg = (
-            f"<b>Entry:</b> Row {row}, Col {col}<br><br>"
+            f"<b>Entry:</b> Row {row}, Col {col}<br>" + 
+            f"<b>Value:</b> {A[row][col]}<br><br>"
             f"<b>Row Stats:</b><br>" + "".join(f"{k}: {v:.3g}<br>" for k, v in stats(r_vals).items()) +
             f"<br><b>Column Stats:</b><br>" + "".join(f"{k}: {v:.3g}<br>" for k, v in stats(c_vals).items())
         )
