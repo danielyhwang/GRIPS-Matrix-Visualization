@@ -1,6 +1,8 @@
+colorama==0.4.6
 contourpy==1.3.2
 cycler==0.12.1
 fonttools==4.58.4
+iniconfig==2.1.0
 kiwisolver==1.4.8
 matplotlib==3.10.3
 networkx==3.5
@@ -8,11 +10,15 @@ numpy==2.3.1
 packaging==25.0
 pandas==2.3.1
 pillow==11.3.0
+pluggy==1.6.0
+PyGCGOpt==0.4.0
+Pygments==2.19.2
 pyparsing==3.2.3
 PySCIPOpt==5.5.0
 PySide6==6.9.1
 PySide6_Addons==6.9.1
 PySide6_Essentials==6.9.1
+pytest==8.4.1
 python-dateutil==2.9.0.post0
 pytz==2025.2
 scipy==1.16.0
