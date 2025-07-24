@@ -187,3 +187,5 @@ mps/
 benchmark.zip
 ~$summary_statistics.xlsx
 summary_statistics.xlsx
+partial_decomps/
+alldecompositions/
