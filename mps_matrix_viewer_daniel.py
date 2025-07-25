@@ -13,7 +13,7 @@ from PySide6.QtCharts import QChart, QChartView, QScatterSeries
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QPainter, QColor, QPixmap, QImage
 from pygcgopt import Model
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, coo_matrix
 #from scipy.sparse.linalg import svds
 from PIL import Image
 
@@ -129,21 +129,31 @@ class MatrixViewer(QWidget):
                       }
         model.setParams(param_dict)
 
-        # The following code gives us a list of partial decompositions and writes them locally.
+        # The following code gives us a list of partial decompositions and writes them locally. All PyGCGOpt stuff.
 
-        # These commands suppress output.
+        # These commands suppress output. For now, just keep printVersion.
         #model.optimize() # Added to test capability of GCG. EDIT: Results in code breaking for small cases, also slow in general because it actually solves the LP, when we just want the decomps.
         model.printVersion()
-        model.redirectOutput()
-        model.setMinimize()
+        #model.redirectOutput()
+        #model.setMinimize()
 
-        # These commands do the actual decomposition. 
-        #model.presolve() # Added to test capability of GCG.
+        # These commands compute the decompositions. It may not be possible to get all decomps, hence the try except block.
+        #model.setPresolve(SCIP_PARAMSETTING.OFF) #uncommented, suggested by https://github.com/scipopt/PyGCGOpt/issues/27
+        #model.presolve() # Added to test capability of GCG. LEAVE COMMENTED, PRESOLVE WILL RUIN THINGS.
         model.detect()
         decomps = model.listDecompositions() 
+
+        try:
+            model.writeAllDecomps() # Daniel: I get errors locally. Tried following https://stackoverflow.com/questions/74923091/writing-an-mps-i-get-os-error-scip-cannot-create-file
+            # ABOVE MAY NOT WORK WITH MODEL.PRESOLVE ENABLED. Created try-except block.
+        except OSError:
+            msgBox = QMessageBox()
+            msgBox.setWindowTitle("")
+            msgBox.setText(f"Note: Due to OS Error, not all decompositions were written to alldecompositions/. Proceeding with code as normal.")
+            msgBox.exec()
+
         print("GCG found {} finished decompositions.".format(len(decomps)))
         #print(decomps) # Currently does not work due to bug in PyGCGOpt.
-        model.writeAllDecomps() # WILL NOT WORK WITH MODEL.PRESOLVE ENABLED.
 
         # These commands write all partial decompositions to disk.
         STEM_OF_FILENAME = Path(filename).stem
@@ -159,12 +169,12 @@ class MatrixViewer(QWidget):
             print(PARTIAL_DECOMP_NAME)
             model.writeProblem(str(PARTIAL_DECOMP_NAME))
 
-        # All code from mps_matrix_viewer follows regularly from here.
-
         variables = model.getVars(transformed=True) #transformed=True is necessary due to presolve.
         constraints = model.getConss()
         var_names = [var.name for var in variables]
         var_index = {name: idx for idx, name in enumerate(var_names)}
+        con_names = [con.name for con in constraints]
+        con_index = {name: idx for idx, name in enumerate(con_names)}
 
         # Enumerate over each of the constraints. 
         row_inds, col_inds, data = [], [], []
@@ -184,6 +194,62 @@ class MatrixViewer(QWidget):
                     data.append(coef)
 
         self.A_sparse = csr_matrix((data, (row_inds, col_inds)), shape=(len(constraints), len(variables)))
+
+        # The following code sorts out the matrix for you, if you request it to, from a dec file.
+        msgBox = QMessageBox()
+        msgBox.setWindowTitle("")
+        msgBox.setText(f"This code should have written some (partial) decompositions to alldecompositions/ or partial_decomps/. You can either choose to load in the original matrix OR sort the matrix according to one of these decompositions.")
+
+        original_matrix_button = msgBox.addButton("View Original Matrix", QMessageBox.ActionRole);
+        sort_by_decomp_button = msgBox.addButton("Sort Matrix By Decommp", QMessageBox.ActionRole);
+        msgBox.exec()
+
+        if msgBox.clickedButton() == original_matrix_button:
+             pass #do nothing
+        elif msgBox.clickedButton() == sort_by_decomp_button:
+            filename, _ = QFileDialog.getOpenFileName(self, "Open DEC File", "", "DEC Files (*.dec *.DEC);;All Files (*)")
+            
+            # This code reads through a permutation and takes each of the blocks and sorts constraints accordingly to said blocks.
+            # I would make this a python function, but I need the var_index dict.
+
+            # Read through each of the blocks in order in the dec file. 
+            # https://www.geeksforgeeks.org/python/how-to-read-from-a-file-in-python/#linebyline-reading-in-python
+            idenRows = [None] * len(con_names)
+            currentConstraintIndex = 0
+            with open(filename, "r") as dec_file:
+                currently_in_block = False
+                for line in dec_file:
+                    stripped_line = line.strip()
+                    if stripped_line.startswith("CONSDEFAULTMASTER") or stripped_line.startswith("PRESOLVED") or stripped_line.startswith("NBLOCKS") or stripped_line.startswith("BLOCKVARS") or stripped_line.startswith("MASTERVAR") or stripped_line.startswith("LINKINGVAR"):
+                        #If our line starts with any of the keywords above, it has unnecessary information (as of writing this program)
+                        # and we ignore it. We ignore anything with variables at the moment, may integrate later.
+                        currently_in_block = False
+                    elif stripped_line.startswith("BLOCK") or stripped_line.startswith("MASTERCONS"):
+                        # If our line starts with BLOCK or MASTERCONS, it is about to be followed by a list of constraints. 
+                        # Enabling currently_in_block will let us read those constraints in order in each block. Treat mastercons as a block.
+                        currently_in_block = True
+                    elif currently_in_block:
+                        # If currently_in_block, we want to read in the index associated with said constraint and append it to idenRows
+                        idenRows[currentConstraintIndex] = con_index[stripped_line]
+                        currentConstraintIndex += 1
+
+            # Store permutation as idenRows, sort self.A_sparse according to idenRows.
+            # https://stackoverflow.com/questions/28334719/swap-rows-csr-matrix-scipy
+            # Note to self: The following array is taken from neos859080-cC-28-44dec.dec created by writeAllDecomps. For some reason, it fails due to OSError.
+            #[1, 122, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 2, 42, 82, 3, 43, 83, 4, 44, 84, 5, 45, 85, 6, 46, 86, 7, 47, 87, 8, 48, 88, 9, 49, 89, 10, 50, 90, 11, 51, 91, 12, 52, 92, 13, 53, 93, 14, 54, 94, 15, 55, 95, 16, 56, 96, 17, 57, 97, 18, 58, 98, 19, 59, 99, 20, 60, 100, 21, 61, 101, 22, 62, 102, 23, 63, 103, 24, 64, 104, 25, 65, 105, 26, 66, 106, 27, 67, 107, 28, 68, 108, 29, 69, 109, 30, 70, 110, 31, 71, 111, 32, 72, 112, 33, 73, 113, 34, 74, 114, 35, 75, 115, 36, 76, 116, 37, 77, 117, 38, 78, 118, 39, 79, 119, 40, 80, 120, 41, 81, 121, 123, 124, 125, 126]
+
+            A_temp_sparse = self.A_sparse.tocoo()
+        
+            idenRows = np.argsort(idenRows)
+            idenRows = np.asarray(idenRows, dtype=A_temp_sparse.row.dtype)
+            A_temp_sparse.row = idenRows[A_temp_sparse.row]
+            self.A_sparse = A_temp_sparse.tocsr()
+        else:
+            msgBox = QMessageBox()
+            msgBox.setWindowTitle("")
+            msgBox.setText("ERROR: The type of scatterplot you have requested is not supported. Please try something else. "
+            + "(Devs: This means that you tried calling upload_plot with an option that is currently not implemented.)")
+            msgBox.exec()
 
         #Preserving old properties in case we need them later
         # Rank - requires svds, from scipy.sparse.linalg import svds
