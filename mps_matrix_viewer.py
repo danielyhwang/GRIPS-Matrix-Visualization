@@ -150,7 +150,8 @@ class MatrixViewer(QWidget):
             ("Avg non-zeros per row", np.mean(np.diff(self.A_sparse.indptr))),
             ("Avg non-zeros per column", np.mean(np.diff(self.A_sparse.indptr)) * self.A_sparse.shape[0] / self.A_sparse.shape[1]), #For some reason, np.mean(np.diff(self.A_sparse.T.indptr)) does not work, so we manually rescale by num_rows/num_cols.
             ("Sparsity (%)", 100 * (1 - self.A_sparse.nnz / (self.A_sparse.shape[0] * self.A_sparse.shape[1]))),
-            ("Row NNZ Variance", np.var(np.diff(self.A_sparse.indptr)))
+            ("Row NNZ Variance", np.var(np.diff(self.A_sparse.indptr))),
+            ("Relative Rank", np.linalg.matrix_rank(self.A_sparse.toarray()) / min(self.A_sparse.shape))
             # Following properties are commented out for historical preservation
             #("Column NNZ Variance", np.var(np.diff(csr_matrix(self.A_sparse.T).indptr))),
             #("Min coefficient", np.min(data)),
