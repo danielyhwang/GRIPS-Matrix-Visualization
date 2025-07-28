@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QTableWidget, QTableWidgetItem,
     QHeaderView, QMessageBox, QLabel
 )
-from PySide6.QtCharts import QChart, QChartView, QScatterSeries
+from PySide6.QtCharts import QChart, QChartView, QScatterSeries, QValueAxis
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QPainter, QColor, QPixmap, QImage
 from pyscipopt import Model
@@ -200,12 +200,9 @@ class MatrixViewer(QWidget):
             + "(Devs: This means that you tried calling upload_plot with an option that is currently not implemented.)")
             msgBox.exec()
 
+
     def plot_binary_scatterplot(self):
         rows, cols = self.A_sparse.nonzero()
-        #If you want to do random sampling of a matrix instead of visualizing the whole thing.
-        #indices = list(zip(rows, cols))
-        #if len(indices) > 100_000:
-        #    indices = random.sample(indices, 100_000)
 
         chart = QChart()
         chart.setTitle("Binary Scatterplot of Constraint Matrix A (black = non-zero)")
@@ -219,12 +216,36 @@ class MatrixViewer(QWidget):
         series.clicked.connect(self.on_point_clicked)
         chart.addSeries(series)
 
-        chart.createDefaultAxes()
-        axisX, axisY = chart.axes()
-        axisX.setTitleText("Variables (Columns)") 
+        # Custom axes
+        axisX = QValueAxis()
+        axisY = QValueAxis()
+
+        max_col = self.A_sparse.shape[1]
+        max_row = self.A_sparse.shape[0]
+
+        # Expand ranges slightly to avoid cut-off (e.g., by 1)
+        axisX.setRange(-0.5, max_col - 0.5)
+        axisY.setRange(-0.5, max_row - 0.5)
+
+        # Only show integer ticks
+        axisX.setTickType(QValueAxis.TicksFixed)
+        axisY.setTickType(QValueAxis.TicksFixed)
+        axisX.setTickAnchor(0)
+        axisY.setTickAnchor(0)
+        axisX.setTickInterval(1)
+        axisY.setTickInterval(1)
+
+        axisX.setTitleText("Variables (Columns)")
         axisY.setTitleText("Constraints (Rows)")
         axisY.setReverse(True)
+
+        chart.addAxis(axisX, Qt.AlignBottom)
+        chart.addAxis(axisY, Qt.AlignLeft)
+        series.attachAxis(axisX)
+        series.attachAxis(axisY)
+
         self.chart_view.setChart(chart)
+
 
     def plot_magnitude_scatterplot(self):
         rows, cols = self.A_sparse.nonzero()
@@ -259,12 +280,36 @@ class MatrixViewer(QWidget):
             series.clicked.connect(self.on_point_clicked)
             chart.addSeries(series)
 
-        chart.createDefaultAxes()
-        axisX, axisY = chart.axes()
-        axisX.setTitleText("Variables (Columns)") 
+        # Manually define axes
+        axisX = QValueAxis()
+        axisY = QValueAxis()
+
+        max_col = self.A_sparse.shape[1]
+        max_row = self.A_sparse.shape[0]
+
+        axisX.setRange(-0.5, max_col - 0.5)
+        axisY.setRange(-0.5, max_row - 0.5)
+
+        axisX.setTickType(QValueAxis.TicksFixed)
+        axisY.setTickType(QValueAxis.TicksFixed)
+        axisX.setTickAnchor(0)
+        axisY.setTickAnchor(0)
+        axisX.setTickInterval(1)
+        axisY.setTickInterval(1)
+
+        axisX.setTitleText("Variables (Columns)")
         axisY.setTitleText("Constraints (Rows)")
         axisY.setReverse(True)
+
+        chart.addAxis(axisX, Qt.AlignBottom)
+        chart.addAxis(axisY, Qt.AlignLeft)
+
+        for series in chart.series():
+            series.attachAxis(axisX)
+            series.attachAxis(axisY)
+
         self.chart_view.setChart(chart)
+
 
     def plot_row_scaled_heatmap(self):
         self.chart_view.setVisible(False)
