@@ -209,35 +209,46 @@ class MatrixViewer(QWidget):
         chart.legend().hide()
 
         series = QScatterSeries()
-        series.setMarkerSize(10)
+        series.setMarkerSize(5)
         series.setColor(QColor("black"))
         for r, c in zip(rows, cols):
             series.append(QPointF(c, r))
         series.clicked.connect(self.on_point_clicked)
         chart.addSeries(series)
 
-        # Custom axes
-        axisX = QValueAxis()
-        axisY = QValueAxis()
-
         max_col = self.A_sparse.shape[1]
         max_row = self.A_sparse.shape[0]
 
-        # Expand ranges slightly to avoid cut-off (e.g., by 1)
-        axisX.setRange(-0.5, max_col - 0.5)
-        axisY.setRange(-0.5, max_row - 0.5)
+        # Compute axis bounds with exactly 1 unit padding
+        x_min = -1
+        x_max = max_col
+        y_min = -2
+        y_max = max_row
 
-        # Only show integer ticks
-        axisX.setTickType(QValueAxis.TicksFixed)
-        axisY.setTickType(QValueAxis.TicksFixed)
-        axisX.setTickAnchor(0)
-        axisY.setTickAnchor(0)
-        axisX.setTickInterval(1)
-        axisY.setTickInterval(1)
-
+        # X Axis
+        axisX = QValueAxis()
         axisX.setTitleText("Variables (Columns)")
+        axisX.setRange(x_min, x_max)
+        axisX.setTickInterval(1)
+        axisX.setLabelFormat("%d")
+        axisX.setMinorTickCount(0)
+        axisX.setTickType(QValueAxis.TicksFixed)
+
+        # Y Axis
+        axisY = QValueAxis()
         axisY.setTitleText("Constraints (Rows)")
+        axisY.setRange(y_min, y_max)
+        axisY.setTickInterval(1)
+        axisY.setLabelFormat("%d")
+        axisY.setMinorTickCount(0)
+        axisY.setTickType(QValueAxis.TicksFixed)
         axisY.setReverse(True)
+
+        # Remove grid lines
+        axisX.setGridLineVisible(False)
+        axisY.setGridLineVisible(False)
+        axisX.setMinorGridLineVisible(False)
+        axisY.setMinorGridLineVisible(False)
 
         chart.addAxis(axisX, Qt.AlignBottom)
         chart.addAxis(axisY, Qt.AlignLeft)
@@ -245,6 +256,8 @@ class MatrixViewer(QWidget):
         series.attachAxis(axisY)
 
         self.chart_view.setChart(chart)
+        self.chart_view.setVisible(True)
+
 
 
     def plot_magnitude_scatterplot(self):
@@ -273,33 +286,37 @@ class MatrixViewer(QWidget):
 
             series = QScatterSeries()
             series.setColor(color)
-            series.setMarkerSize(12)
+            series.setMarkerSize(8)
             shape = QScatterSeries.MarkerShapeCircle if v > 0 else QScatterSeries.MarkerShapeRectangle
             series.setMarkerShape(shape)
             series.append(QPointF(c, r))
             series.clicked.connect(self.on_point_clicked)
             chart.addSeries(series)
 
-        # Manually define axes
-        axisX = QValueAxis()
-        axisY = QValueAxis()
-
+        # Manually define axes with integer ticks and 1-unit padding
         max_col = self.A_sparse.shape[1]
         max_row = self.A_sparse.shape[0]
 
-        axisX.setRange(-0.5, max_col - 0.5)
-        axisY.setRange(-0.5, max_row - 0.5)
-
-        axisX.setTickType(QValueAxis.TicksFixed)
-        axisY.setTickType(QValueAxis.TicksFixed)
-        axisX.setTickAnchor(0)
-        axisY.setTickAnchor(0)
-        axisX.setTickInterval(1)
-        axisY.setTickInterval(1)
-
+        axisX = QValueAxis()
         axisX.setTitleText("Variables (Columns)")
+        axisX.setRange(-1, max_col)
+        axisX.setTickInterval(1)
+        axisX.setLabelFormat("%d")
+        axisX.setMinorTickCount(0)
+        axisX.setTickType(QValueAxis.TicksFixed)
+        axisX.setGridLineVisible(False)
+        axisX.setMinorGridLineVisible(False)
+
+        axisY = QValueAxis()
         axisY.setTitleText("Constraints (Rows)")
+        axisY.setRange(-2, max_row)
+        axisY.setTickInterval(1)
+        axisY.setLabelFormat("%d")
+        axisY.setMinorTickCount(0)
+        axisY.setTickType(QValueAxis.TicksFixed)
         axisY.setReverse(True)
+        axisY.setGridLineVisible(False)
+        axisY.setMinorGridLineVisible(False)
 
         chart.addAxis(axisX, Qt.AlignBottom)
         chart.addAxis(axisY, Qt.AlignLeft)
@@ -309,6 +326,7 @@ class MatrixViewer(QWidget):
             series.attachAxis(axisY)
 
         self.chart_view.setChart(chart)
+        self.chart_view.setVisible(True)
 
 
     def plot_row_scaled_heatmap(self):
