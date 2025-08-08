@@ -178,6 +178,9 @@ class MatrixViewer(QWidget):
 
         # Enumerate over each of the constraints. 
         row_inds, col_inds, data = [], [], []
+
+        # Added for block sorting later, for each row, we store a list of the columns represented in each row.
+        row_index_mapped_to_col_indices = {}
         for i, cons in enumerate(constraints):
             #try:
             #    row = model.getRowLinear(cons)
@@ -186,12 +189,14 @@ class MatrixViewer(QWidget):
             #    print("")
 
             terms = model.getValsLinear(cons) 
+            row_index_mapped_to_col_indices[i] = set()
             for var_name, coef in terms.items():
                 j = var_index[var_name]
                 if coef != 0:
                     row_inds.append(i)
                     col_inds.append(j)
                     data.append(coef)
+                    row_index_mapped_to_col_indices[i].add(j)
 
         self.A_sparse = csr_matrix((data, (row_inds, col_inds)), shape=(len(constraints), len(variables)))
 
@@ -201,7 +206,7 @@ class MatrixViewer(QWidget):
         msgBox.setText(f"This code should have written some (partial) decompositions to alldecompositions/ or partial_decomps/. You can either choose to load in the original matrix OR sort the matrix according to one of these decompositions.")
 
         original_matrix_button = msgBox.addButton("View Original Matrix", QMessageBox.ActionRole);
-        sort_by_decomp_button = msgBox.addButton("Sort Matrix By Decommp", QMessageBox.ActionRole);
+        sort_by_decomp_button = msgBox.addButton("Sort Matrix By Decomp", QMessageBox.ActionRole);
         msgBox.exec()
 
         if msgBox.clickedButton() == original_matrix_button:
@@ -215,23 +220,55 @@ class MatrixViewer(QWidget):
             # Read through each of the blocks in order in the dec file. 
             # https://www.geeksforgeeks.org/python/how-to-read-from-a-file-in-python/#linebyline-reading-in-python
             idenRows = [None] * len(con_names)
-            currentConstraintIndex = 0
+            currentConstraintIndex = len(con_names) - 1
+
+            idenCols = [None] * len(var_names)
+            currentVariableIndex = len(var_names) - 1
+
             with open(filename, "r") as dec_file:
                 currently_in_block = False
+                current_rows_in_block = set()
                 for line in dec_file:
                     stripped_line = line.strip()
                     if stripped_line.startswith("CONSDEFAULTMASTER") or stripped_line.startswith("PRESOLVED") or stripped_line.startswith("NBLOCKS") or stripped_line.startswith("BLOCKVARS") or stripped_line.startswith("MASTERVAR") or stripped_line.startswith("LINKINGVAR"):
                         #If our line starts with any of the keywords above, it has unnecessary information (as of writing this program)
                         # and we ignore it. We ignore anything with variables at the moment, may integrate later.
                         currently_in_block = False
-                    elif stripped_line.startswith("BLOCK") or stripped_line.startswith("MASTERCONS"):
+                    elif stripped_line.startswith("BLOCK"):
                         # If our line starts with BLOCK or MASTERCONS, it is about to be followed by a list of constraints. 
                         # Enabling currently_in_block will let us read those constraints in order in each block. Treat mastercons as a block.
                         currently_in_block = True
+
+                        # Now that we've inputted in our rows from the corresponding block, we naively push the columns associated with each block to the end of the matrix
+                        # by compiling each of the column indices associated with each row and taking their set.
+                        # Note for the first time around, current_rows_in_block will be empty and will not run.
+
+                        # Collect all columns in block
+                        current_cols_in_block = set()
+                        for block_row_index in current_rows_in_block:
+                            current_cols_in_block.update(row_index_mapped_to_col_indices[block_row_index])
+                        
+                        # Push these columns to the end.
+                        for block_col_index in current_cols_in_block:
+                            idenCols[currentVariableIndex] = block_col_index
+                            currentVariableIndex -= 1
+
+                        # Reset current rows and current columns in block.
+
+                        current_rows_in_block = set()
+                        current_cols_in_block = set()
+                            
+
+                    elif stripped_line.startswith("MASTERCONS"):
+                        # If our line starts with BLOCK or MASTERCONS, it is about to be followed by a list of constraints. 
+                        # Enabling currently_in_block will let us read those constraints in order in each block. Treat mastercons as a block.
+                        currently_in_block = True
+                        # However, we do not need to sort columns like we do above in the case of a block.
                     elif currently_in_block:
                         # If currently_in_block, we want to read in the index associated with said constraint and append it to idenRows
                         idenRows[currentConstraintIndex] = con_index[stripped_line]
-                        currentConstraintIndex += 1
+                        currentConstraintIndex -= 1
+                        current_rows_in_block.add(con_index[stripped_line])
 
             # Store permutation as idenRows, sort self.A_sparse according to idenRows.
             # https://stackoverflow.com/questions/28334719/swap-rows-csr-matrix-scipy
@@ -243,7 +280,13 @@ class MatrixViewer(QWidget):
             idenRows = np.argsort(idenRows)
             idenRows = np.asarray(idenRows, dtype=A_temp_sparse.row.dtype)
             A_temp_sparse.row = idenRows[A_temp_sparse.row]
+
+            idenCols = np.argsort(idenCols)
+            idenCols = np.asarray(idenCols, dtype=A_temp_sparse.col.dtype)
+            A_temp_sparse.col = idenCols[A_temp_sparse.col]
+            
             self.A_sparse = A_temp_sparse.tocsr()
+
         else:
             msgBox = QMessageBox()
             msgBox.setWindowTitle("")

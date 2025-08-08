@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math, sys
-from PySide6.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QTextEdit, QFileDialog, QMessageBox
+from PySide6.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QFileDialog, QMessageBox, QFrame
 from pyscipopt import Model
 from scipy.sparse import csr_matrix
 import numpy as np
@@ -225,6 +225,7 @@ class Edge(QGraphicsItem):
             #self._draw_arrow(painter, self._line.p1(), self._arrow_target()) #our edges are undirected
             self._arrow_target()
 
+SCALE_FACTOR = 1.25
 
 class GraphView(QGraphicsView):
     def __init__(self, graph: nx.DiGraph, parent=None):
@@ -240,24 +241,20 @@ class GraphView(QGraphicsView):
         self._scene = QGraphicsScene()
         self.setScene(self._scene)
 
-        # Enable dragging
+        # Enable dragging always
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
 
         """
         Following code sets up pan/zoom functionality.
         """
 
-        #self._zoom = 0
-        #self._pinned = False
-        #self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
-        #self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
-        #self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        #self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        #self.setBackgroundBrush(QBrush(QColor(30, 30, 30))) # This code sets the color.
-        #self.setFrameShape(QtWidgets.Qframe.Shape.NoFrame)
-
-        # Pause here, continue stuff. Keep working on graph, 
-        # move onto row and column clickable functionality.
+        self._zoom = 0
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setBackgroundBrush(QBrush(QColor(30, 30, 30))) # This code sets the color.
+        self.setFrameShape(QFrame.Shape.NoFrame)
 
         """
         Following code creates graph
@@ -331,6 +328,10 @@ class GraphView(QGraphicsView):
 
             self.animations.start()
 
+            # THIS RECTANGLE WILL CONTAIN THE WHOLE GRAPH. Note that the view is inverted, so the top left and bottom right are switched.
+            self._rect = QRectF(QPointF(-self._graph_scale, self._graph_scale), QPointF(self._graph_scale, -self._graph_scale))
+            self.resetView()
+
     def _load_graph(self):
         """Load graph into QGraphicsScene using Node class and Edge class"""
 
@@ -342,27 +343,53 @@ class GraphView(QGraphicsView):
             item = Node(node)
             self._scene.addItem(item)
             self._nodes_map[node] = item
-
         # Add edges
         for a, b in self._graph.edges:
             source = self._nodes_map[a]
             dest = self._nodes_map[b]
             self._scene.addItem(Edge(source, dest))
 
-        # print(self.size())
-        # print(self.viewport().size())
-        # Remaining things to do
-        # self.setScene(self._scene)
-        # self.fitInView(self.sceneRect())
-        # Rescale the QGraphicsView to fit whole scene in view.
-        # Enable zoom functionality
+        # This code merely loads in the graph, all nodes and edges are at the same position,
+        # we will set the scene LATER after the layout is applied, see set_nx_layout.
+
+    def resetView(self, scale=1):
+        if (scale := max(1, scale)) == 1:
+            self._zoom = 0
+        unity = self.transform().mapRect(QRectF(0, 0, 1, 1))
+        self.scale(1 / unity.width(), 1 / unity.height())
+        viewrect = self.viewport().rect()
+        scenerect = self.transform().mapRect(self._rect)
+        factor = min(viewrect.width() / scenerect.width(), viewrect.height() / scenerect.height()) * scale
+        self.scale(-factor, -factor) # minus sign added due to inverted view. https://stackoverflow.com/questions/55713341/change-the-orientation-of-qgraphicsview
+
+    def zoom(self, step):
+        zoom = max(0, self._zoom + (step := int(step)))
+        if zoom != self._zoom:
+            self._zoom = zoom
+            if self._zoom > 0:
+                if step > 0:
+                    factor = SCALE_FACTOR ** step
+                else:
+                    factor = 1 / SCALE_FACTOR ** abs(step)
+                self.scale(factor, factor)
+            else:
+                self.resetView()
+    
+    def wheelEvent(self, event):
+        delta = event.angleDelta().y()
+        self.zoom(delta and delta // abs(delta))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.resetView()
+
 
 # The following code contains a self-contained graph visualization widget, which allows it
 # to be imported as a module in our mps_merged_viewer.py file. Note that it is initialized by feeding
 # in a filename.
 class GraphViewer(QWidget):
     """
-    Initializes a GraphView and TextBox where we can store important information.
+    Initializes a GraphView and Label where we can store important information.
     Input: filename - name of a file passed in from QFileDialog.
     """
     def __init__(self, filename, include_toggle_buttons = True):
@@ -372,12 +399,6 @@ class GraphViewer(QWidget):
 
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
-
-        #Create a text box where you can store information.
-
-        self.text_area = QTextEdit()
-        self.text_area.setReadOnly(True)
-        self.layout.addWidget(self.text_area)
 
         # Load model and build sparse matrix
         self.model = Model()
@@ -421,8 +442,7 @@ class GraphViewer(QWidget):
         # self.canvas = FigureCanvas(self.figure)
         # self.layout.addWidget(self.canvas)
 
-         # Calculate basic statistics and store it in text.
-        self.text_area.clear()
+        # Calculate basic statistics to store in label.
         degrees = [deg for _, deg in primal_graph.degree()]
         avg_degree = np.mean(degrees)
         max_degree = np.max(degrees)
@@ -441,7 +461,7 @@ class GraphViewer(QWidget):
             print("⚠️ Treewidth estimation not available — requires `networkx >= 2.6`.")
             print("🧠 Explanation: Treewidth is NP-hard to compute exactly, so approximation is used.\n")
 
-        # Set text based on statistics above.
+        # Create label based on statistics above.
         info_text = (
             f"Loaded MPS file: {self.filename}\n"
             f"Number of variables: {self.n_vars}\n"
@@ -453,7 +473,11 @@ class GraphViewer(QWidget):
             f"Largest component size: {largest_component}\n"
             f"Treewidth (approxmimate): {treewidth_calculated}"
         )
-        self.text_area.setPlainText(info_text)
+        
+        #Create a label where you can store information.
+        self.label = QLabel(info_text)
+        self.label.setScaledContents(False)
+        self.layout.addWidget(self.label)
 
         # Create a choice combo box where you can toggle between different layouts (based off layouts of self view).
 
