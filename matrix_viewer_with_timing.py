@@ -186,7 +186,9 @@ class MatrixViewer(QWidget):
         rows, cols = self.A_sparse.nonzero()
         vals = self.A_sparse.data
         entries = list(zip(rows, cols, vals))
-        if len(entries) > 50000:
+        # OPTIONAL: If there are greater than 50,000 entries, we take a sample of 50,000 entries.
+        # Comment out these lines if you want the matrix viewer to run for the whole matrix.
+        if len(entries) > 50000: 
             entries = random.sample(entries, 50000)
         chart = QChart()
         chart.setTitle("Signed Magnitude Heatmap")

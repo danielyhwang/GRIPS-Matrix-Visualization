@@ -7,12 +7,19 @@ The goal of this project is to create a tool that visualizes matrices, more spec
 ## Tools Used
 PyQt to create the graphical interface, PySciPoPT to load in the MIPS model, along with common libraries such as Scipy, Numpy, Matplotlib, Seaborn, etc...
 
-## How To Use
-1. Clone this repo. Ensure Python is at least version 3.11. *If Python is version 3.10, then NetworkX may not fully function.*
+## How To Set Up
+1. Clone this repo. Ensure Python is at least version 3.11. *If Python is version 3.10, then NetworkX may not fully function with computing the bipartite layout.*
 2. Open Terminal (Mac/Linux) or Command Prompt (Windows) and change directory to current repo. One way to do this via GitHub Desktop is to right click on the repo name, click "Copy repo path" and run `cd insert_repo_path_here`. NOTE: For Windows VS Code users, this should work with the built-in VS Code terminal, just make sure that your Terminal is set to cmd and NOT powershell.
 3. For first-time use (skip if not needed): Create virtual environment by running `python -m venv env`. Activate virtual environment by running `source env/bin/activate` (Mac) or `env\Scripts\activate.bat` (Windows). Run `pip install -r requirements.txt` to load in all libraries in use. For developers, periodically update libraries used by running `pip freeze > requirements.txt`.
-4. Now run `python mps_merged_viewer.py` (this will open a matrix visualization tool that visualizes the matrix as a black-white scatterplot or a magnitude scatterplot, also visualizes the primal graph, dual graph, and incidence graph associated with the matrix) or `python mps_benchmark_statistics.py` (requires download of `benchmark.zip` to this folder, script will process each mps file in benchmark.zip (restricted to files up to a certain number of constraints and variables)).
-5. Other files in this repository involve data analysis on the `summary_statistics.csv` file obtained by running `python mps_benchmark_statistics.py`.
+
+## Files to Run - Viewers
+- Run `python mps_matrix_viewer.py` (this will open a matrix visualizaiton tool that visualizes the matrix as a binary scatterplot, a magnitude scatterplot, and a row-scaled heatmap).
+- Run `python mps_graph_viewer.py` (this will open a graph visualizaiton tool that visualizes the primal graph, dual graph, and incidence graph associated with the matrix)
+- Run `python mps_merged_viewer.py` (previous two viewers combined into one) 
+
+## Files to Run - Statistics
+- Run `python mps_benchmark_statistics.py` (requires download of `benchmark.zip` to this folder, script will process each mps file in benchmark.zip (restricted to files up to a certain number of constraints and variables)).
+- Other files in this repository involve data analysis on the `summary_statistics.csv` file obtained by running `python mps_benchmark_statistics.py`.
 
 ## Developer's Notes: GitHub Desktop workflow.
 1. Clone the repo if you haven't already. Remember to fetch origin to make sure your files are synced with the repo!!!
