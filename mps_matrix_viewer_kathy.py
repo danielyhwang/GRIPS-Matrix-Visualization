@@ -1,19 +1,21 @@
+# MPS Matrix Viewer with Stats + Clickable Scatterplot
 import sys, math, random, io
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PySide6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QHBoxLayout,
-    QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox, QLabel
+    QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog,
+    QHBoxLayout, QTableWidget, QTableWidgetItem,
+    QHeaderView, QMessageBox, QLabel
 )
-from PySide6.QtCharts import QChart, QChartView, QScatterSeries
-from PySide6.QtCore import QPointF, Qt
+from PySide6.QtCharts import QChart, QChartView, QScatterSeries, QValueAxis
+from PySide6.QtCore import QPointF, Qt, QMargins
 from PySide6.QtGui import QPainter, QColor, QPixmap, QImage
 from pyscipopt import Model
 from scipy.sparse import csr_matrix
+#from scipy.sparse.linalg import svds
 from PIL import Image
-
 
 class ClickableFigureCanvas(FigureCanvas):
     def __init__(self, parent, fig, data_matrix):
@@ -38,17 +40,16 @@ class ClickableFigureCanvas(FigureCanvas):
                 msg = f"<b>Row {row} Statistics:</b><br>" + "".join(f"{k}: {v:.3g}<br>" for k, v in stats.items())
                 QMessageBox.information(self, "Row Info", msg)
 
-
 class MatrixViewer(QWidget):
-    def __init__(self, filename):
+    def __init__(self, filename, include_toggle_buttons = True):
         super().__init__()
         self.setWindowTitle("Enhanced MPS Matrix Viewer")
 
         self.A_sparse = None
-        self.last_plot_data = []
 
-        self.layout = QVBoxLayout(self)
+        self.layout = QVBoxLayout(self) #combines two lines together
 
+        # Load in stats table, and chart view, along with export button.
         self.stats_table = QTableWidget()
         self.stats_table.setColumnCount(2)
         self.stats_table.setHorizontalHeaderLabels(["Property", "Value"])
@@ -58,28 +59,34 @@ class MatrixViewer(QWidget):
         self.chart_view = QChartView()
         self.chart_view.setRenderHint(QPainter.Antialiasing)
         self.layout.addWidget(self.chart_view)
-
+        
         self.heatmap_label = QLabel()
         self.heatmap_label.setAlignment(Qt.AlignCenter)
         self.layout.addWidget(self.heatmap_label)
         self.heatmap_label.setVisible(False)
 
-        # Buttons
+        # Add in bottom layout for buttons.
         bottom_layout = QHBoxLayout()
-        self.export_button = QPushButton("Export Plot to JPEG")
-        self.binary_button = QPushButton("Binary Scatterplot")
-        self.magnitude_button = QPushButton("Magnitude Scatterplot")
-        self.row_scaled_button = QPushButton("Row-Scaled Heatmap")
-        bottom_layout.addWidget(self.binary_button)
-        bottom_layout.addWidget(self.magnitude_button)
-        bottom_layout.addWidget(self.row_scaled_button)
-        bottom_layout.addWidget(self.export_button)
-        self.layout.addLayout(bottom_layout)
 
-        self.export_button.clicked.connect(self.export_chart_as_image)
-        self.binary_button.clicked.connect(lambda: self.update_plot("Binary"))
-        self.magnitude_button.clicked.connect(lambda: self.update_plot("Magnitude"))
-        self.row_scaled_button.clicked.connect(lambda: self.update_plot("RowScaled"))
+        # Testing functionality of MatrixViewer, only if include_toggle_buttons is on.
+        if include_toggle_buttons:
+            self.binary_button = QPushButton("Binary Scatterplot")
+            self.magnitude_button = QPushButton("Magnitude Scatterplot")
+            self.row_scaled_button = QPushButton("Row-Scaled Heatmap")
+            # Ensure these match their corresponding parts in update_plot!
+            self.binary_button.clicked.connect(lambda: self.update_plot("Binary Scatterplot")) 
+            self.magnitude_button.clicked.connect(lambda: self.update_plot("Magnitude Scatterplot"))
+            self.row_scaled_button.clicked.connect(lambda: self.update_plot("Row-Scaled Heatmap"))
+            bottom_layout.addWidget(self.binary_button)
+            bottom_layout.addWidget(self.magnitude_button)
+            bottom_layout.addWidget(self.row_scaled_button)
+
+        # Include export plot to JPEG functionality.
+        bottom_layout.addStretch()
+        self.export_image_button = QPushButton("Export Plot to JPEG")
+        self.export_image_button.clicked.connect(self.export_chart_as_image)
+        bottom_layout.addWidget(self.export_image_button)
+        self.layout.addLayout(bottom_layout)
 
         self.legend_label = QLabel()
         self.legend_label.setAlignment(Qt.AlignCenter)
@@ -87,7 +94,7 @@ class MatrixViewer(QWidget):
         self.legend_label.setVisible(False)
 
         self.load_matrix(filename)
-        self.update_plot("Binary")
+        self.update_plot("Binary Scatterplot")
 
     def generate_gradient_qpixmap(self, width=300, height=20):
         gradient = np.linspace(-1, 1, width)
@@ -114,11 +121,26 @@ class MatrixViewer(QWidget):
             terms = model.getValsLinear(cons)
             for var_name, coef in terms.items():
                 j = var_index[var_name]
-                row_inds.append(i)
-                col_inds.append(j)
-                data.append(coef)
+                if coef != 0:
+                    row_inds.append(i)
+                    col_inds.append(j)
+                    data.append(coef)
 
         self.A_sparse = csr_matrix((data, (row_inds, col_inds)), shape=(len(constraints), len(variables)))
+
+        #Preserving old properties in case we need them later
+        # Rank - requires svds, from scipy.sparse.linalg import svds
+        #try:
+        #    k = min(self.A_sparse.shape) - 1
+        #    _, s, _ = svds(self.A_sparse, k=k)
+        #    tol = 1e-10
+        #    rank_val = int(np.sum(s > tol))
+        #except Exception:
+        #    rank_val = "N/A"
+
+        # Additional properties are commented out under props. They may use these below.
+        #row_indices, col_indices = self.A_sparse.nonzero()
+        #l2_norms = np.linalg.norm(self.A_sparse.toarray(), axis=1)
 
         props = [
             ("\U0001F4C1 File:", filename),
@@ -126,9 +148,28 @@ class MatrixViewer(QWidget):
             ("Total entries", self.A_sparse.shape[0] * self.A_sparse.shape[1]),
             ("Non-zero entries", self.A_sparse.nnz),
             ("Avg non-zeros per row", np.mean(np.diff(self.A_sparse.indptr))),
-            ("Avg non-zeros per column", np.mean(np.diff(self.A_sparse.T.indptr))),
+            ("Avg non-zeros per column", np.mean(np.diff(self.A_sparse.indptr)) * self.A_sparse.shape[0] / self.A_sparse.shape[1]), #For some reason, np.mean(np.diff(self.A_sparse.T.indptr)) does not work, so we manually rescale by num_rows/num_cols.
             ("Sparsity (%)", 100 * (1 - self.A_sparse.nnz / (self.A_sparse.shape[0] * self.A_sparse.shape[1]))),
-            ("Row NNZ Variance", np.var(np.diff(self.A_sparse.indptr)))
+            ("Row NNZ Variance", np.var(np.diff(self.A_sparse.indptr))),
+            ("Relative Rank", np.linalg.matrix_rank(self.A_sparse.toarray()) / min(self.A_sparse.shape))
+            # Following properties are commented out for historical preservation
+            #("Column NNZ Variance", np.var(np.diff(csr_matrix(self.A_sparse.T).indptr))),
+            #("Min coefficient", np.min(data)),
+            #("Max coefficient", np.max(data)),
+            #("Mean coefficient", np.mean(data)),
+            #("Std coefficient", np.std(data)),
+            #("Integer-like (%)", round(100 * np.mean(np.mod(data, 1) == 0), 3)),
+            #("Matrix rank", rank_val),
+            #("Matrix bandwidth", np.max(np.abs(row_indices - col_indices)) if self.A_sparse.nnz > 0 else 0),
+            #("Diag Dominant Rows (%)", "N/A" if self.A_sparse.shape[0] != self.A_sparse.shape[1] else
+            #    round(100 * np.mean([
+            #        abs(self.A_sparse[i, i]) >= np.sum(np.abs(self.A_sparse[i, :])) - abs(self.A_sparse[i, i])
+            #        for i in range(self.A_sparse.shape[0])
+            #    ]), 3)),
+            #("Avg row L2 norm", float(np.mean(l2_norms))),
+            #("Max row L2 norm", float(np.max(l2_norms))),
+            #("Zero rows", int(np.sum(row_nnz == 0))),
+            #("Zero columns", int(np.sum(col_nnz == 0)))
         ]
 
         self.stats_table.setRowCount(len(props))
@@ -136,46 +177,95 @@ class MatrixViewer(QWidget):
             self.stats_table.setItem(i, 0, QTableWidgetItem(str(k)))
             self.stats_table.setItem(i, 1, QTableWidgetItem(str(v)))
 
-    def update_plot(self, plot_type):
+    def update_plot(self, type_of_plot):
         self.legend_label.setVisible(False)
         self.heatmap_label.setVisible(False)
         self.chart_view.setVisible(True)
 
-        if plot_type == "Binary":
-            self.plot_binary()
-        elif plot_type == "Magnitude":
-            self.plot_magnitude()
+        if self.A_sparse is None:
+            return
+        # If you are using merged viewer, make sure that these match the items in self.selector and update_selection.
+        if type_of_plot == "Binary Scatterplot":
+            self.plot_binary_scatterplot()
+        elif type_of_plot == "Magnitude Scatterplot":
+            self.plot_magnitude_scatterplot()
             self.legend_label.setPixmap(self.generate_gradient_qpixmap(350, 25))
             self.legend_label.setVisible(True)
-        elif plot_type == "RowScaled":
+        elif type_of_plot == "Row-Scaled Heatmap":
             self.plot_row_scaled_heatmap()
+        else:
+            msgBox = QMessageBox()
+            msgBox.setWindowTitle("")
+            msgBox.setText("ERROR: The type of scatterplot you have requested is not supported. Please try something else. "
+            + "(Devs: This means that you tried calling upload_plot with an option that is currently not implemented.)")
+            msgBox.exec()
 
-    def plot_binary(self):
+
+    def plot_binary_scatterplot(self):
         rows, cols = self.A_sparse.nonzero()
+
         chart = QChart()
-        chart.setTitle("Binary Scatterplot (Black = Non-zero)")
+        chart.setTitle("Binary Scatterplot of Constraint Matrix A (black = non-zero)")
         chart.legend().hide()
 
         series = QScatterSeries()
-        series.setMarkerSize(10)
+        series.setMarkerSize(5)
         series.setColor(QColor("black"))
         for r, c in zip(rows, cols):
             series.append(QPointF(c, r))
         series.clicked.connect(self.on_point_clicked)
         chart.addSeries(series)
 
-        chart.createDefaultAxes()
-        chart.axisX().setTitleText("Variables (Columns)")
-        chart.axisY().setTitleText("Constraints (Rows)")
-        chart.axisY().setReverse(True)
-        self.chart_view.setChart(chart)
+        max_col = self.A_sparse.shape[1]
+        max_row = self.A_sparse.shape[0]
 
-    def plot_magnitude(self):
+        # Compute axis bounds with exactly 1 unit padding
+        x_min = -1
+        x_max = max_col
+        y_min = -2
+        y_max = max_row
+
+        # X Axis
+        axisX = QValueAxis()
+        axisX.setTitleText("Variables (Columns)")
+        axisX.setRange(x_min, x_max)
+        axisX.setTickInterval(1)
+        axisX.setLabelFormat("%d")
+        axisX.setMinorTickCount(0)
+        axisX.setTickType(QValueAxis.TicksFixed)
+
+        # Y Axis
+        axisY = QValueAxis()
+        axisY.setTitleText("Constraints (Rows)")
+        axisY.setRange(y_min, y_max)
+        axisY.setTickInterval(1)
+        axisY.setLabelFormat("%d")
+        axisY.setMinorTickCount(0)
+        axisY.setTickType(QValueAxis.TicksFixed)
+        axisY.setReverse(True)
+
+        # Remove grid lines
+        axisX.setGridLineVisible(False)
+        axisY.setGridLineVisible(False)
+        axisX.setMinorGridLineVisible(False)
+        axisY.setMinorGridLineVisible(False)
+
+        chart.addAxis(axisX, Qt.AlignBottom)
+        chart.addAxis(axisY, Qt.AlignLeft)
+        series.attachAxis(axisX)
+        series.attachAxis(axisY)
+
+        self.chart_view.setChart(chart)
+        self.chart_view.setVisible(True)
+
+   
+
+    def plot_magnitude_scatterplot(self):
         rows, cols = self.A_sparse.nonzero()
         vals = self.A_sparse.data
         entries = list(zip(rows, cols, vals))
-        if len(entries) > 50000:
-            entries = random.sample(entries, 50000)
+        if len(entries) > 50_000:
+            entries = random.sample(entries, 50_000)
 
         chart = QChart()
         chart.setTitle("Signed Magnitude Heatmap (Circle = +, Square = −, Blue→Red by Log-Magnitude)")
@@ -187,8 +277,7 @@ class MatrixViewer(QWidget):
         log_range = max_log - min_log if max_log > min_log else 1.0
 
         for r, c, v in entries:
-            if v == 0:
-                continue
+            if v == 0: continue
             log_mag = math.log10(abs(v))
             norm = (log_mag - min_log) / log_range
             red = int(255 * norm)
@@ -197,52 +286,49 @@ class MatrixViewer(QWidget):
 
             series = QScatterSeries()
             series.setColor(color)
-            series.setMarkerSize(12)
+            series.setMarkerSize(8)
             shape = QScatterSeries.MarkerShapeCircle if v > 0 else QScatterSeries.MarkerShapeRectangle
             series.setMarkerShape(shape)
             series.append(QPointF(c, r))
             series.clicked.connect(self.on_point_clicked)
             chart.addSeries(series)
 
-        chart.createDefaultAxes()
-        chart.axisX().setTitleText("Variables (Columns)")
-        chart.axisY().setTitleText("Constraints (Rows)")
-        chart.axisY().setReverse(True)
+        # Manually define axes with integer ticks and 1-unit padding
+        max_col = self.A_sparse.shape[1]
+        max_row = self.A_sparse.shape[0]
+
+        axisX = QValueAxis()
+        axisX.setTitleText("Variables (Columns)")
+        axisX.setRange(-1, max_col)
+        axisX.setTickInterval(1)
+        axisX.setLabelFormat("%d")
+        axisX.setMinorTickCount(0)
+        axisX.setTickType(QValueAxis.TicksFixed)
+        axisX.setGridLineVisible(False)
+        axisX.setMinorGridLineVisible(False)
+
+        axisY = QValueAxis()
+        axisY.setTitleText("Constraints (Rows)")
+        axisY.setRange(-2, max_row)
+        axisY.setTickInterval(1)
+        axisY.setLabelFormat("%d")
+        axisY.setMinorTickCount(0)
+        axisY.setTickType(QValueAxis.TicksFixed)
+        axisY.setReverse(True)
+        axisY.setGridLineVisible(False)
+        axisY.setMinorGridLineVisible(False)
+
+        chart.addAxis(axisX, Qt.AlignBottom)
+        chart.addAxis(axisY, Qt.AlignLeft)
+
+        for series in chart.series():
+            series.attachAxis(axisX)
+            series.attachAxis(axisY)
+
         self.chart_view.setChart(chart)
+        self.chart_view.setVisible(True)
 
-        # Remove old magnitude legend if it exists
-        if hasattr(self, "magnitude_legend_widget"):
-            self.layout.removeWidget(self.magnitude_legend_widget)
-            self.magnitude_legend_widget.deleteLater()
-            del self.magnitude_legend_widget
 
-        # Create new magnitude legend
-        gradient_bar = QLabel()
-        gradient_bar.setPixmap(self.generate_gradient_qpixmap(250, 20))
-        gradient_bar.setFixedWidth(250)
-
-        # Min, Mid, Max Labels aligned under the bar
-        min_label = QLabel(f"{min_log:.2f}")
-        mid_label = QLabel(f"{(min_log + max_log) / 2:.2f}")
-        max_label = QLabel(f"{max_log:.2f}")
-
-        labels_layout = QHBoxLayout()
-        labels_layout.addWidget(min_label)
-        labels_layout.addStretch()
-        labels_layout.addWidget(mid_label)
-        labels_layout.addStretch()
-        labels_layout.addWidget(max_label)
-
-        legend_layout = QVBoxLayout()
-        legend_layout.setAlignment(Qt.AlignCenter)
-        legend_layout.addWidget(gradient_bar, alignment=Qt.AlignHCenter)
-        legend_layout.addLayout(labels_layout)
-
-        self.magnitude_legend_widget = QWidget()
-        self.magnitude_legend_widget.setLayout(legend_layout)
-
-        # Insert directly below chart and above buttons (just before last widget in layout)
-        self.layout.insertWidget(self.layout.count() - 1, self.magnitude_legend_widget)
 
     def plot_row_scaled_heatmap(self):
         self.chart_view.setVisible(False)
@@ -275,64 +361,65 @@ class MatrixViewer(QWidget):
     def on_point_clicked(self, point):
         row, col = int(point.y()), int(point.x())
         A = self.A_sparse.toarray()
-        value = A[row, col]
         r_vals, c_vals = A[row], A[:, col]
 
         def stats(arr):
             return {
-                "Min": np.min(arr), "Max": np.max(arr), "Mean": np.mean(arr),
-                "Std": np.std(arr), "L2 norm": np.linalg.norm(arr),
-                "Non-zeros": np.count_nonzero(arr), "Zeros": len(arr) - np.count_nonzero(arr)
+                "Min": np.min(arr),
+                #"Max": np.max(arr),
+                #"Mean": np.mean(arr),
+                "Std": np.std(arr),
+                #"L2 norm": np.linalg.norm(arr),
+                #"Zeros": int(len(arr) - np.count_nonzero(arr)),
+                "Non-zeros": int(np.count_nonzero(arr))
             }
 
         msg = (
-            f"<b>Value:</b> {value:.3g}<br>"
-            f"<b>Entry:</b> Row {row}, Col {col}<br><br>"
+            f"<b>Entry:</b> Row {row}, Col {col}<br>" + 
+            f"<b>Value:</b> {A[row][col]}<br><br>"
             f"<b>Row Stats:</b><br>" + "".join(f"{k}: {v:.3g}<br>" for k, v in stats(r_vals).items()) +
             f"<br><b>Column Stats:</b><br>" + "".join(f"{k}: {v:.3g}<br>" for k, v in stats(c_vals).items())
         )
-
         QMessageBox.information(self, "Matrix Entry Info", msg)
 
     def export_chart_as_image(self):
+        print("STILL IN DEBUG MODE.")
+        # Get pixmap.
         if self.heatmap_label.isVisible():
             pixmap = self.heatmap_label.grab()
         elif self.chart_view.chart():
             pixmap = self.chart_view.grab()
         else:
-            QMessageBox.information(self, "Export", "No chart to export.")
+            msgBox = QMessageBox()
+            msgBox.setWindowTitle("")
+            msgBox.setText("❌ No chart to export.")
+            msgBox.exec()
+            # THIS SHOULD NEVER RUN
             return
-
-        filename, _ = QFileDialog.getSaveFileName(self, "Save Chart", "plot.jpeg", "JPEG (*.jpeg *.jpg)")
-        if filename and pixmap:
-            pixmap.save(filename, "JPEG")
-
+        
+        # Now save it.
+        filename, _ = QFileDialog.getSaveFileName(self, "Save Chart as JPEG", "plot.jpeg", "JPEG Image (*.jpeg *.jpg)")
+        if filename:
+            if not pixmap.save(filename, "JPEG"):
+                msgBox = QMessageBox()
+                msgBox.setWindowTitle("")
+                msgBox.setText("❌ Failed to save image.")
+                msgBox.exec()
+            else:
+                msgBox = QMessageBox()
+                msgBox.setWindowTitle("")
+                msgBox.setText(f"✅ Saved: {filename}")
+                msgBox.exec()
 
 class FileLoader(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Load MPS File")
-        self.setMinimumSize(300, 100)
-        layout = QVBoxLayout(self)
-
-        self.label = QLabel("Click the button below to load an MPS file.")
-        self.label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.label)
-
-        self.load_button = QPushButton("Load MPS File")
-        self.load_button.clicked.connect(self.load_file)
-        layout.addWidget(self.load_button)
-
-    def load_file(self):
-        filename, _ = QFileDialog.getOpenFileName(self, "Open MPS File", "", "MPS Files (*.mps)")
-        if filename:
-            self.hide()
-            self.viewer = MatrixViewer(filename)
-            self.viewer.show()
-
+        self.filename, _ = QFileDialog.getOpenFileName(self, "Open MPS File", "", "MPS Files (*.mps *.MPS);;All Files (*)")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    loader = FileLoader()
-    loader.show()
+    file_window = FileLoader()
+    if file_window.filename:
+        window = MatrixViewer(file_window.filename, include_toggle_buttons=True)
+        window.show()
     sys.exit(app.exec())

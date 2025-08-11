@@ -124,4 +124,3 @@ if time_records:
     print(f"📊 Time summary saved to {TIME_FILE}")
 
 print("🎉 All benchmark files processed with scatter plots!")
-

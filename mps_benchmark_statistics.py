@@ -26,12 +26,18 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 # Step 1: Unzip benchmark.zip
 print("🔍 Step 1: Unzipping benchmark.zip...")
-with zipfile.ZipFile(BENCHMARK_ZIP, 'r') as zip_ref:
-    zip_ref.extractall(BENCHMARK_DIR)
-print("✅ Unzipped benchmark.zip to ./benchmark")
+# Make benchmark directory
+try:
+    BENCHMARK_DIR.mkdir(exist_ok = False) #If exist_ok is False, creating an existing directory in benchmark
+    # will raise a FileExistsError, to which we simply say that the benchmark directory exists. 
+    with zipfile.ZipFile(BENCHMARK_ZIP, 'r') as zip_ref:
+        zip_ref.extractall(BENCHMARK_DIR)
+    print("✅ Unzipped benchmark.zip to ./benchmark")
+except FileExistsError:
+    print("./benchmark already exists!")
 
 # Step 2: Unpack all .gz files into mps directory
-print("🔍 Step 2: Decompressing .gz files into ./mps folder...")
+print("🔍 Step 2: Decompressing .gz files in ./benchmark into ./mps folder...")
 for gz_file in BENCHMARK_DIR.rglob("*.gz"):
     mps_target = MPS_DIR / gz_file.stem
     print(f"📂 Decompressing: {gz_file.name}")
@@ -39,6 +45,8 @@ for gz_file in BENCHMARK_DIR.rglob("*.gz"):
         with gzip.open(gz_file, 'rb') as f_in:
             with open(mps_target, 'wb') as f_out:
                 shutil.copyfileobj(f_in, f_out)
+    else:
+        print(f"{gz_file.name} already exists!")
 print("✅ Decompressed all .gz files")
 
 # Step 3: Process MPS files
@@ -53,38 +61,44 @@ def process_mps(file_path, stem):
     vars_ = model.getVars()
     conss = model.getConss()
 
-    if len(vars_) > 10000 or len(conss) > 10000:
-        print(f"⚠️ Skipping {stem} due to size > 10,000")
+    # Tried to test this for files greater than 15000 variables or 15000 constraints, ran into issues.
+    if len(vars_) > 15000 or len(conss) > 15000:
+        print(f"⚠️ Skipping {stem} due to size > 15,000")
+        print()
         return
 
+    # Commented out b, senses, c, these were taking too much space. Feel free to uncomment if you want 
+    # local matrix data.
     var_names = [var.name for var in vars_]
     var_index = {name: i for i, name in enumerate(var_names)}
     A = np.zeros((len(conss), len(vars_)))
-    b = []
-    senses = []
-    c = np.array([var.getObj() for var in vars_])
+    #b = []
+    #senses = []
+    #c = np.array([var.getObj() for var in vars_])
 
     for i, cons in enumerate(conss):
         terms = model.getValsLinear(cons)
         for name, val in terms.items():
             j = var_index[name]
             A[i, j] = val
-        lhs = model.getLhs(cons)
-        rhs = model.getRhs(cons)
-        if lhs == rhs:
-            senses.append("=")
-            b.append(rhs)
-        elif np.isfinite(rhs):
-            senses.append("<=")
-            b.append(rhs)
-        else:
-            senses.append(">=")
-            b.append(lhs)
+        #lhs = model.getLhs(cons)
+        #rhs = model.getRhs(cons)
+        #if lhs == rhs:
+        #    senses.append("=")
+        #    b.append(rhs)
+        #elif np.isfinite(rhs):
+        #    senses.append("<=")
+        #    b.append(rhs)
+        #else:
+        #    senses.append(">=")
+        #    b.append(lhs)
 
-    df_A = pd.DataFrame(A, columns=var_names)
-    df_A.to_pickle(output_path / f"{stem}_A.pkl")
-    pd.DataFrame({'RHS': b, 'Sense': senses}).to_pickle(output_path / f"{stem}_b.pkl")
-    pd.DataFrame({'Variable': var_names, 'Objective Coef': c}).to_pickle(output_path / f"{stem}_c.pkl")
+    # Commented out, as these were taking too much space. Feel free to uncomment if you want 
+    # local matrix data.
+    #df_A = pd.DataFrame(A, columns=var_names)
+    #df_A.to_pickle(output_path / f"{stem}_A.pkl")
+    #pd.DataFrame({'RHS': b, 'Sense': senses}).to_pickle(output_path / f"{stem}_b.pkl")
+    #pd.DataFrame({'Variable': var_names, 'Objective Coef': c}).to_pickle(output_path / f"{stem}_c.pkl")
 
     # Advanced matrix statistics
     nonzeros = np.count_nonzero(A)
@@ -105,6 +119,12 @@ def process_mps(file_path, stem):
     zero_rows = np.sum(np.count_nonzero(A, axis=1) == 0)
     zero_cols = np.sum(np.count_nonzero(A, axis=0) == 0)
 
+    try:
+        from networkx.algorithms.approximation.treewidth import treewidth_min_fill_in
+        treewidth_calculated, _ = treewidth_min_fill_in(primal_graph)
+    except:
+        treewidth_calculated = "N/A"
+
     stats = {
         "file": stem,
         "variables": shape[1],
@@ -123,11 +143,16 @@ def process_mps(file_path, stem):
         "avg_row_L2_norm": avg_row_norm,
         "max_row_L2_norm": max_row_norm,
         "zero_rows": zero_rows,
-        "zero_columns": zero_cols
+        "zero_columns": zero_cols,
+        "treewidth" : treewidth_calculated
     }
 
     pd.Series(stats).to_csv(output_path / f"{stem}_stats.csv")
     summary_records.append(stats)
+
+    # This code computes the binary scatterplot and a heatmap version of the scatterplot, but
+    # we commented this out due to taking too much time. Feel free to uncomment if you want
+    # these figures stored locally.
 
     plt.figure(figsize=(10, 6))
     nonzero_coords = np.argwhere(A != 0)
@@ -139,6 +164,7 @@ def process_mps(file_path, stem):
     plt.tight_layout()
     plt.savefig(output_path / f"{stem}_scatter.png")
     plt.clf()
+    plt.close()
 
     plt.figure(figsize=(10, 6))
     sns.heatmap(A, cmap='viridis', cbar=False)
@@ -146,6 +172,7 @@ def process_mps(file_path, stem):
     plt.tight_layout()
     plt.savefig(output_path / f"{stem}_heatmap.png")
     plt.clf()
+    plt.close()
 
     print(f"✅ Finished processing {stem}\n")
 
