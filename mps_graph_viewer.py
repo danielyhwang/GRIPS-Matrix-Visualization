@@ -471,7 +471,7 @@ class GraphViewer(QWidget):
             f"Average clustering coefficient: {clustering_avg:.4f}\n"
             f"Number of connected components: {num_components}\n"
             f"Largest component size: {largest_component}\n"
-            f"Treewidth (approxmimate): {treewidth_calculated}"
+            f"Treewidth (approximate): {treewidth_calculated}"
         )
         
         #Create a label where you can store information.
@@ -608,7 +608,6 @@ class GraphViewer(QWidget):
         self.choice_combo.setCurrentText("circular") 
 
          # Calculate basic statistics and store it in text.
-        self.text_area.clear()
         degrees = [deg for _, deg in updated_graph.degree()]
         avg_degree = np.mean(degrees)
         max_degree = np.max(degrees)
@@ -634,9 +633,10 @@ class GraphViewer(QWidget):
             f"Average clustering coefficient: {clustering_avg:.4f}\n"
             f"Number of connected components: {num_components}\n"
             f"Largest component size: {largest_component}\n"
-            f"Treewidth (approxmimate): {treewidth_calculated}"
+            f"Treewidth (approximate): {treewidth_calculated}"
         )
-        self.text_area.setPlainText(info_text)
+        # update Label
+        self.label = QLabel(info_text)
 
     # Exports current graph view as JPEG.
     def export_graph_as_image(self):
