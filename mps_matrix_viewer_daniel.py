@@ -484,7 +484,6 @@ class MatrixViewer(QWidget):
         QMessageBox.information(self, "Matrix Entry Info", msg)
 
     def export_chart_as_image(self):
-        print("STILL IN DEBUG MODE.")
         # Get pixmap.
         if self.heatmap_label.isVisible():
             pixmap = self.heatmap_label.grab()

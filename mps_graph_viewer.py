@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math, sys
-from PySide6.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QFileDialog, QMessageBox, QFrame
+from PySide6.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QTextEdit, QFileDialog, QMessageBox, QFrame, QSizePolicy
 from pyscipopt import Model
 from scipy.sparse import csr_matrix
 import numpy as np
@@ -389,7 +389,7 @@ class GraphView(QGraphicsView):
 # in a filename.
 class GraphViewer(QWidget):
     """
-    Initializes a GraphView and Label where we can store important information.
+    Initializes a GraphView and TextBox where we can store important information.
     Input: filename - name of a file passed in from QFileDialog.
     """
     def __init__(self, filename, include_toggle_buttons = True):
@@ -442,7 +442,7 @@ class GraphViewer(QWidget):
         # self.canvas = FigureCanvas(self.figure)
         # self.layout.addWidget(self.canvas)
 
-        # Calculate basic statistics to store in label.
+        # Calculate basic statistics to store in text.
         degrees = [deg for _, deg in primal_graph.degree()]
         avg_degree = np.mean(degrees)
         max_degree = np.max(degrees)
@@ -461,7 +461,7 @@ class GraphViewer(QWidget):
             print("⚠️ Treewidth estimation not available — requires `networkx >= 2.6`.")
             print("🧠 Explanation: Treewidth is NP-hard to compute exactly, so approximation is used.\n")
 
-        # Create label based on statistics above.
+        # Set text based on statistics above.
         info_text = (
             f"Loaded MPS file: {self.filename}\n"
             f"Number of variables: {self.n_vars}\n"
@@ -471,13 +471,15 @@ class GraphViewer(QWidget):
             f"Average clustering coefficient: {clustering_avg:.4f}\n"
             f"Number of connected components: {num_components}\n"
             f"Largest component size: {largest_component}\n"
-            f"Treewidth (approxmimate): {treewidth_calculated}"
+            f"Treewidth (approximate): {treewidth_calculated}"
         )
         
-        #Create a label where you can store information.
-        self.label = QLabel(info_text)
-        self.label.setScaledContents(False)
-        self.layout.addWidget(self.label)
+        #Create a text box where you can store information.
+        self.text_area = QTextEdit()
+        self.text_area.setText(info_text)
+        self.text_area.setReadOnly(True)
+        self.layout.addWidget(self.text_area)
+        self.text_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed) #Expands horizontally, but remains fixed vertically.
 
         # Create a choice combo box where you can toggle between different layouts (based off layouts of self view).
 
@@ -608,7 +610,6 @@ class GraphViewer(QWidget):
         self.choice_combo.setCurrentText("circular") 
 
          # Calculate basic statistics and store it in text.
-        self.text_area.clear()
         degrees = [deg for _, deg in updated_graph.degree()]
         avg_degree = np.mean(degrees)
         max_degree = np.max(degrees)
@@ -627,15 +628,16 @@ class GraphViewer(QWidget):
 
         info_text = (
             f"Loaded MPS file: {self.filename}\n"
-            f"Number of variables: {self.n_vars}\n"
-            f"Number of constraints: {self.n_cons}\n"
+            f"Number of variables: {self.n_cons if type_of_graph == "Dual graph" else self.n_vars}\n"
+            f"Number of constraints: {self.n_vars if type_of_graph == "Dual graph" else self.n_cons}\n"
             f"Average node degree: {avg_degree:.2f}\n"
             f"Maximum node degree: {max_degree}\n"
             f"Average clustering coefficient: {clustering_avg:.4f}\n"
             f"Number of connected components: {num_components}\n"
             f"Largest component size: {largest_component}\n"
-            f"Treewidth (approxmimate): {treewidth_calculated}"
+            f"Treewidth (approximate): {treewidth_calculated}"
         )
+        # Set text based on statistics above.
         self.text_area.setPlainText(info_text)
 
     # Exports current graph view as JPEG.
