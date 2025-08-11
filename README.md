@@ -8,7 +8,7 @@ The goal of this project is to create a tool that visualizes matrices, more spec
 PyQt to create the graphical interface, PySciPoPT to load in the MIPS model, along with common libraries such as Scipy, Numpy, Matplotlib, Seaborn, etc...
 
 ## How To Use
-1. Clone this repo. 
+1. Clone this repo. Ensure Python is at least version 3.11. *If Python is version 3.10, then NetworkX may not fully function.*
 2. Open Terminal (Mac/Linux) or Command Prompt (Windows) and change directory to current repo. One way to do this via GitHub Desktop is to right click on the repo name, click "Copy repo path" and run `cd insert_repo_path_here`. NOTE: For Windows VS Code users, this should work with the built-in VS Code terminal, just make sure that your Terminal is set to cmd and NOT powershell.
 3. For first-time use (skip if not needed): Create virtual environment by running `python -m venv env`. Activate virtual environment by running `source env/bin/activate` (Mac) or `env\Scripts\activate.bat` (Windows). Run `pip install -r requirements.txt` to load in all libraries in use. For developers, periodically update libraries used by running `pip freeze > requirements.txt`.
 4. Now run `python mps_merged_viewer.py` (this will open a matrix visualization tool that visualizes the matrix as a black-white scatterplot or a magnitude scatterplot, also visualizes the primal graph, dual graph, and incidence graph associated with the matrix) or `python mps_benchmark_statistics.py` (requires download of `benchmark.zip` to this folder, script will process each mps file in benchmark.zip (restricted to files up to a certain number of constraints and variables)).
@@ -20,6 +20,9 @@ PyQt to create the graphical interface, PySciPoPT to load in the MIPS model, alo
 3. Make changes, commit them, and push to origin. They should now be available on GitHub.
 4. To push changes onto main, open a pull request from your branch into main. If there are manual conflicts, resolve them before proceeding. Your changes should now be updated onto main!
 5. **REMEMBER PERIODICALLY TO CLICK CURRENT BRANCH AND MERGE MAIN INTO YOUR BRANCH.** If there are manual conflicts, resolve them before proceeding.
+
+## Developer Note: Visual Studio Code
+Our IDE of choice was VS Code, and we used the Python Interpreter plugin in order to run our code. You may also alternatively run the Command Terminal prompts above.
 
 ## Acknowledgements
 Our mentors this summer were Timo Berthold (FICO Optimization), along with Mohammed Ghannam, Gioni Mexi, and Liding Xu of Zuse Institute Berlin (ZIB). The authors of this repository acknowledge funding from IPAM (US participants) and MODAL (EU participants) for the summer, along with ZIB for their gracious hospitality.
