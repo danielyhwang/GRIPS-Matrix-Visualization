@@ -1,3 +1,4 @@
+
 import sys, math, random, io
 import numpy as np
 import matplotlib.pyplot as plt
@@ -34,7 +35,6 @@ class ClickableFigureCanvas(FigureCanvas):
         if event.inaxes:
             row = int(event.ydata)
             if 0 <= row < self.data_matrix.shape[0]:
-                # Compute basic statistics for the clicked row
                 stats = {
                     "Min": np.min(self.data_matrix[row]),
                     "Max": np.max(self.data_matrix[row]),
@@ -44,7 +44,6 @@ class ClickableFigureCanvas(FigureCanvas):
                     "Non-zeros": np.count_nonzero(self.data_matrix[row]),
                     "Zeros": len(self.data_matrix[row]) - np.count_nonzero(self.data_matrix[row])
                 }
-                # Display the stats in a popup
                 msg = f"<b>Row {row} Statistics:</b><br>" + "".join(f"{k}: {v:.3g}<br>" for k, v in stats.items())
                 QMessageBox.information(self, "Row Info", msg)
 
@@ -57,8 +56,8 @@ class MatrixViewer(QWidget):
         super().__init__()
         self.setWindowTitle("Enhanced MPS Matrix Viewer")
 
-        self.A_sparse = None  # Sparse matrix representation of constraints
-        self.last_plot_data = []  # Placeholder for storing plot data if needed
+        self.A_sparse = None
+        self.last_plot_data = []
 
         self.layout = QVBoxLayout(self)
 
@@ -104,13 +103,10 @@ class MatrixViewer(QWidget):
         self.layout.addWidget(self.legend_label)
         self.legend_label.setVisible(False)
 
-        # Load the matrix from MPS file and show initial plot
+        # Load matrix and show initial plot
         self.load_matrix(filename)
         self.update_plot("Binary")
 
-    # -----------------------------
-    # Utility to convert Matplotlib figure to QPixmap
-    # -----------------------------
     def fig_to_qpixmap(self, fig):
         buf = io.BytesIO()
         fig.savefig(buf, format='png', bbox_inches='tight', dpi=150)
@@ -118,9 +114,6 @@ class MatrixViewer(QWidget):
         qimg = QImage.fromData(buf.getvalue())
         return QPixmap.fromImage(qimg)
 
-    # -----------------------------
-    # Load MPS file into a sparse matrix
-    # -----------------------------
     def load_matrix(self, filename):
         model = Model()
         model.readProblem(filename)
@@ -130,7 +123,6 @@ class MatrixViewer(QWidget):
         var_index = {name: idx for idx, name in enumerate(var_names)}
 
         row_inds, col_inds, data = [], [], []
-        # Extract coefficients for each constraint-variable pair
         for i, cons in enumerate(constraints):
             terms = model.getValsLinear(cons)
             for var_name, coef in terms.items():
@@ -139,10 +131,8 @@ class MatrixViewer(QWidget):
                 col_inds.append(j)
                 data.append(coef)
 
-        # Build SciPy CSR sparse matrix
         self.A_sparse = csr_matrix((data, (row_inds, col_inds)), shape=(len(constraints), len(variables)))
 
-        # Compute matrix properties for display
         props = [
             ("\U0001F4C1 File:", filename),
             ("Shape", str(self.A_sparse.shape)),
@@ -159,9 +149,6 @@ class MatrixViewer(QWidget):
             self.stats_table.setItem(i, 0, QTableWidgetItem(str(k)))
             self.stats_table.setItem(i, 1, QTableWidgetItem(str(v)))
 
-    # -----------------------------
-    # Main dispatcher for plot types
-    # -----------------------------
     def update_plot(self, plot_type):
         self.legend_label.setVisible(False)
         self.heatmap_label.setVisible(False)
@@ -174,9 +161,6 @@ class MatrixViewer(QWidget):
         elif plot_type == "RowScaled":
             self.plot_row_scaled_heatmap()
 
-    # -----------------------------
-    # Plot binary scatterplot (nonzeros in black)
-    # -----------------------------
     def plot_binary(self):
         rows, cols = self.A_sparse.nonzero()
         chart = QChart()
@@ -199,9 +183,6 @@ class MatrixViewer(QWidget):
         chart.axisY().setReverse(True)
         self.chart_view.setChart(chart)
 
-    # -----------------------------
-    # Plot signed magnitude scatterplot with no-white colorbar
-    # -----------------------------
     def plot_magnitude(self):
         rows, cols = self.A_sparse.nonzero()
         vals = self.A_sparse.data
@@ -213,42 +194,51 @@ class MatrixViewer(QWidget):
         chart.setTitle("Signed Magnitude Scatterplot (circle=+, square=–; color by log|A|)")
         chart.legend().hide()
 
-        # Compute log10(|A|) for color scaling
         abs_vals = [abs(v) for _, _, v in entries if v != 0]
         logs = np.log10(abs_vals)
         min_log, max_log = logs.min(), logs.max()
         norm = Normalize(vmin=min_log, vmax=max_log)
-
-        # Blue→Red without white midpoint
         cmap = LinearSegmentedColormap.from_list("blue_red", ["blue", "red"])
 
-        # Separate series for positive and negative entries
-        series_pos = QScatterSeries()
-        series_pos.setMarkerShape(QScatterSeries.MarkerShapeCircle)
-        series_pos.setMarkerSize(8)
-        series_pos.setOpacity(0.6)
+        num_bins = 20
+        bin_edges = np.linspace(min_log, max_log, num_bins + 1)
+        pos_bins, neg_bins = [], []
+        for i in range(num_bins):
+            mid_val = (bin_edges[i] + bin_edges[i + 1]) / 2
+            color = cmap(norm(mid_val))
+            qcolor = QColor(int(color[0] * 255), int(color[1] * 255), int(color[2] * 255))
 
-        series_neg = QScatterSeries()
-        series_neg.setMarkerShape(QScatterSeries.MarkerShapeRectangle)
-        series_neg.setMarkerSize(8)
-        series_neg.setOpacity(0.6)
+            s_pos = QScatterSeries()
+            s_pos.setMarkerShape(QScatterSeries.MarkerShapeCircle)
+            s_pos.setMarkerSize(8)
+            s_pos.setColor(qcolor)
+            s_pos.setOpacity(0.6)
+            s_pos.clicked.connect(self.on_point_clicked)
+
+            s_neg = QScatterSeries()
+            s_neg.setMarkerShape(QScatterSeries.MarkerShapeRectangle)
+            s_neg.setMarkerSize(8)
+            s_neg.setColor(qcolor)
+            s_neg.setOpacity(0.6)
+            s_neg.clicked.connect(self.on_point_clicked)
+
+            pos_bins.append(s_pos)
+            neg_bins.append(s_neg)
 
         for r, c, v in entries:
             if v == 0:
                 continue
-            color = cmap(norm(np.log10(abs(v))))
-            qcolor = QColor(int(color[0]*255), int(color[1]*255), int(color[2]*255))
+            logv = np.log10(abs(v))
+            bin_idx = np.searchsorted(bin_edges, logv, side='right') - 1
+            bin_idx = max(0, min(num_bins - 1, bin_idx))
             if v > 0:
-                series_pos.setColor(qcolor)
-                series_pos.append(QPointF(c, r))
+                pos_bins[bin_idx].append(QPointF(c, r))
             else:
-                series_neg.setColor(qcolor)
-                series_neg.append(QPointF(c, r))
+                neg_bins[bin_idx].append(QPointF(c, r))
 
-        series_pos.clicked.connect(self.on_point_clicked)
-        series_neg.clicked.connect(self.on_point_clicked)
-        chart.addSeries(series_pos)
-        chart.addSeries(series_neg)
+        for s in pos_bins + neg_bins:
+            if s.count() > 0:
+                chart.addSeries(s)
 
         chart.createDefaultAxes()
         chart.axisX().setTitleText("Variables (Columns)")
@@ -258,16 +248,12 @@ class MatrixViewer(QWidget):
         chart.axisY().setReverse(True)
         self.chart_view.setChart(chart)
 
-        # Colorbar showing log10(|A|) range
         fig, ax = plt.subplots(figsize=(3.5, 0.3))
         cb = mpl.colorbar.ColorbarBase(ax, cmap=cmap, norm=norm, orientation='horizontal')
         self.legend_label.setPixmap(self.fig_to_qpixmap(fig))
         plt.close(fig)
         self.legend_label.setVisible(True)
 
-    # -----------------------------
-    # Plot row-scaled heatmap with no-white colorbar
-    # -----------------------------
     def plot_row_scaled_heatmap(self):
         self.chart_view.setVisible(False)
         self.heatmap_label.setVisible(False)
@@ -275,7 +261,6 @@ class MatrixViewer(QWidget):
         A = self.A_sparse.toarray()
         row_scaled = np.full_like(A, np.nan, dtype=float)
 
-        # Normalize each row over nonzeros only
         for i, row in enumerate(A):
             nz = row[row != 0]
             if len(nz) == 0:
@@ -287,12 +272,9 @@ class MatrixViewer(QWidget):
                 row_scaled[i] = 0
 
         masked = np.ma.masked_invalid(row_scaled)
-
-        # Blue→Red without white midpoint; white only for masked (zero) entries
         cmap = LinearSegmentedColormap.from_list("blue_red", ["blue", "red"])
         cmap.set_bad(color='white')
 
-        # Plot the heatmap
         fig, ax = plt.subplots(figsize=(8, 6))
         im = ax.imshow(masked, cmap=cmap, aspect='auto', origin='lower', vmin=0, vmax=1)
         ax.set_title("Row-Scaled Heatmap (row-wise min-max over nonzeros)")
@@ -308,9 +290,6 @@ class MatrixViewer(QWidget):
         self.heatmap_label.setVisible(True)
         self.canvas.draw()
 
-    # -----------------------------
-    # When a point in a scatterplot is clicked
-    # -----------------------------
     def on_point_clicked(self, point):
         row, col = int(point.y()), int(point.x())
         A = self.A_sparse.toarray()
@@ -323,7 +302,6 @@ class MatrixViewer(QWidget):
                 "Non-zeros": np.count_nonzero(arr), "Zeros": len(arr) - np.count_nonzero(arr)
             }
 
-        # Display stats for the selected row and column
         msg = (
             f"<b>Entry:</b> Row {row}, Col {col}<br><br>"
             f"<b>Row Stats:</b><br>" + "".join(f"{k}: {v:.3g}<br>" for k, v in stats(r_vals).items()) +
@@ -331,9 +309,6 @@ class MatrixViewer(QWidget):
         )
         QMessageBox.information(self, "Matrix Entry Info", msg)
 
-    # -----------------------------
-    # Export currently visible chart or heatmap to JPEG
-    # -----------------------------
     def export_chart_as_image(self):
         if self.heatmap_label.isVisible():
             pixmap = self.heatmap_label.grab()
@@ -348,18 +323,12 @@ class MatrixViewer(QWidget):
             pixmap.save(filename, "JPEG")
 
 
-# -----------------------------
-# File loader dialog for MPS file
-# -----------------------------
 class FileLoader(QWidget):
     def __init__(self):
         super().__init__()
         self.filename, _ = QFileDialog.getOpenFileName(self, "Open MPS File", "", "MPS Files (*.mps)")
 
 
-# -----------------------------
-# Main entry point
-# -----------------------------
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     loader = FileLoader()
