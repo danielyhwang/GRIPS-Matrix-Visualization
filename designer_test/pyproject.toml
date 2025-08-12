@@ -1,5 +1,0 @@
-[project]
-name = "test"
-
-[tool.pyside6-project]
-files = ["main.py", "mainwindow.ui"]

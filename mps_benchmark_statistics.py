@@ -152,27 +152,27 @@ def process_mps(file_path, stem):
 
     # This code computes the binary scatterplot and a heatmap version of the scatterplot, but
     # we commented this out due to taking too much time. Feel free to uncomment if you want
-    # these figures stored locally.
+    # these figures stored locally on your computer.
 
-    plt.figure(figsize=(10, 6))
-    nonzero_coords = np.argwhere(A != 0)
-    plt.scatter(nonzero_coords[:, 1], nonzero_coords[:, 0], s=1, color='black')
-    plt.gca().invert_yaxis()
-    plt.title("Constraint Matrix A - Nonzero Pattern")
-    plt.xlabel("Variable Index")
-    plt.ylabel("Constraint Index")
-    plt.tight_layout()
-    plt.savefig(output_path / f"{stem}_scatter.png")
-    plt.clf()
-    plt.close()
+    #plt.figure(figsize=(10, 6))
+    #nonzero_coords = np.argwhere(A != 0)
+    #plt.scatter(nonzero_coords[:, 1], nonzero_coords[:, 0], s=1, color='black')
+    #plt.gca().invert_yaxis()
+    #plt.title("Constraint Matrix A - Nonzero Pattern")
+    #plt.xlabel("Variable Index")
+    #plt.ylabel("Constraint Index")
+    #plt.tight_layout()
+    #plt.savefig(output_path / f"{stem}_scatter.png")
+    #plt.clf()
+    #plt.close()
 
-    plt.figure(figsize=(10, 6))
-    sns.heatmap(A, cmap='viridis', cbar=False)
-    plt.title("Constraint Matrix A - Heatmap")
-    plt.tight_layout()
-    plt.savefig(output_path / f"{stem}_heatmap.png")
-    plt.clf()
-    plt.close()
+    #plt.figure(figsize=(10, 6))
+    #sns.heatmap(A, cmap='viridis', cbar=False)
+    #plt.title("Constraint Matrix A - Heatmap")
+    #plt.tight_layout()
+    #plt.savefig(output_path / f"{stem}_heatmap.png")
+    #plt.clf()
+    #plt.close()
 
     print(f"✅ Finished processing {stem}\n")
 
