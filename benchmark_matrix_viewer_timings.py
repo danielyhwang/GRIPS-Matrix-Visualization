@@ -112,7 +112,7 @@ def main():
         fpath = os.path.join(input_dir, fname)
         process_file(fpath)
 
-    outpath = "timing_statistics.csv"
+    outpath = "statistics_timings.csv"
     pd.DataFrame(timing_logs).to_csv(outpath, index=False)
     print(f"📊 All timings saved to {outpath}")
 
