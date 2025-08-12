@@ -1,6 +1,3 @@
-# Regenerate full GUI-based benchmark runner that runs all .mps files through the GUI logic (no user interaction)
-
-auto_gui_benchmark_code = """
 import sys, os, time, math, random, io
 import numpy as np
 import pandas as pd
@@ -115,19 +112,9 @@ def main():
         fpath = os.path.join(input_dir, fname)
         process_file(fpath)
 
-    outpath = "gui_interaction_timings.csv"
+    outpath = "timing_statistics.csv"
     pd.DataFrame(timing_logs).to_csv(outpath, index=False)
     print(f"📊 All timings saved to {outpath}")
 
 if __name__ == "__main__":
     main()
-"""
-
-# Save to file for download
-path = "auto_gui_benchmark_runner.py"
-with open(path, "w", encoding="utf-8") as f:
-    f.write(auto_gui_benchmark_code)
-
-path
-
-

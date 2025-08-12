@@ -18,29 +18,17 @@ PyQt to create the graphical interface, PySciPoPT to load in the MIPS model, alo
 - Run `python mps_merged_viewer.py` (previous two viewers combined into one) 
 
 ## Files to Run - Statistics
-- Run `python benchmark_matrix_statistics.py` (requires download of `benchmark.zip` from the MIPLIB website to this folder, script will process each mps file in benchmark.zip (restricted to files up to a certain number of constraints and variables), generate basic statistics about each matrix/mps file, and create a statistics csv file called `output/matrix_statistics.py` - note that `output/` is included in .gitignore, you need to bring this file out of `output/` if you want to save it. Our current version is stored as `matrix_statistics.py`).
-- Run `python matrix_viewer_with_timing.py` (times how long it takes to load in one mps file and ).
+- Run `python benchmark_matrix_statistics.py` (requires download of `benchmark.zip` from the MIPLIB website to this folder, script will process each mps file in `benchmark.zip` (restricted to files up to a certain number of constraints and variables), generate basic statistics about each matrix/mps file, and create a matrix statistics csv file called `output/matrix_statistics.csv` - note that `output/` is included in .gitignore, you need to bring this file out of `output/` if you want to save it. Our current version is stored as `matrix_statistics.csv`).
+- Run `python benchmark_matrix_viewer_timings.py` (requires download of `benchmark.zip` from the MIPLIB website to this folder, script will process each mps file in `benchmark.zip` (restricted to files up to a certain number of constraints and variables) and time how long it takes each portion of our matrix viewer code, and creates a timing statistics csv file called `timing_statistics.csv`.)
 
-## THINGS TO DO
-
-- THINGS WITH SONALI (Tues afternoon)
-- Run `python benchmark_time_statistics.py` (requires download of `benchmark.zip` from the MIPLIB website to this folder, script will process each mps file in benchmark.zip (restricted to files up to a certain number of constraints and variables), time how long it takes the matrix viewer to run and create a statistics file called `output/time_statistics.py` - note that `output/` is included in .gitignore, you need to bring this file out of `output/` if you want to save it. Our current version is stored as `time_statistics.py`).
-- Can I delete benchmark_time_statistics.py and time_statistics.csv? (and the thing above)
-- REMAINING: gui_interaction_timings.csv -> time_statistics.csv, matrix_viewer_with_timing.py -> benchmark_matrix_viewer_with_timing_single.py, mps_matrix_viewer_time.py -> benchmark_matrix_viewer_with_timing_all.py
-- GIVE APPROPRAITE DESRIPTIONS ABOVE.
-- WHERE ARE THE CSV FILES BEING SAVED?!?!??!
-
-- THINGS TO WORK SOLO (Tues evening upon arrival)
-- Everything above.
+## THINGS TO DO TOMORROW
 - Merge all matrix viewers together.
 - Stuff for advisor!
-
-- THINGS MORE TO DO SOLO (Wed)
 - Fix README.md
-- Work on documentation for all files.
+- Work on documentation for all files in repo.
 - Deploy via pyside6-deploy.
 - Final meeting.
-- After this, work on final presentation and report from Wed to Fri. https://arxiv.org/pdf/1906.01629
+- After this, work on final presentation and report from Wed to Fri. RENAME python benchmark_matrix_viewer_timings in report. https://arxiv.org/pdf/1906.01629
 
 ## Developer's Notes: GitHub Desktop workflow.
 1. Clone the repo if you haven't already. Remember to fetch origin to make sure your files are synced with the repo!!!
