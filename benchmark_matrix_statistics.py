@@ -16,7 +16,7 @@ BENCHMARK_ZIP = BASE_DIR / "benchmark.zip"
 BENCHMARK_DIR = BASE_DIR / "benchmark"
 MPS_DIR = BASE_DIR / "mps"
 OUTPUT_DIR = BASE_DIR / "output"
-SUMMARY_FILE = OUTPUT_DIR / "summary_statistics.csv"
+SUMMARY_FILE = OUTPUT_DIR / "statistics_matrix.csv"
 summary_records = []
 
 # Create necessary directories

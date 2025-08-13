@@ -6,6 +6,7 @@ The goal of this project is to create a tool that visualizes matrices, more spec
 
 ## Tools Used
 PyQt to create the graphical interface, PySciPoPT to load in the MIPS model, along with common libraries such as Scipy, Numpy, Matplotlib, Seaborn, etc...
+For more details, please see our final report.
 
 ## How To Set Up
 1. Clone this repo. Ensure Python is at least version 3.11. *If Python is version 3.10, then NetworkX may not fully function with computing the bipartite layout.*
@@ -18,8 +19,16 @@ PyQt to create the graphical interface, PySciPoPT to load in the MIPS model, alo
 - Run `python mps_merged_viewer.py` (previous two viewers combined into one) 
 
 ## Files to Run - Statistics
-- Run `python mps_benchmark_statistics.py` (requires download of `benchmark.zip` to this folder, script will process each mps file in benchmark.zip (restricted to files up to a certain number of constraints and variables)).
-- Other files in this repository involve data analysis on the `summary_statistics.csv` file obtained by running `python mps_benchmark_statistics.py`.
+- Run `python benchmark_matrix_statistics.py` (requires download of `benchmark.zip` from the MIPLIB website to this folder, script will process each mps file in `benchmark.zip` (restricted to files up to a certain number of constraints and variables), generate basic statistics about each matrix/mps file, and create a matrix statistics csv file called `output/statistics_matrix.csv` - note that `output/` is included in .gitignore, you need to bring this file out of `output/` if you want to save it. Our current version is stored as `statistics_matrix.csv`).
+- Run `python benchmark_matrix_viewer_timings.py` (requires download of `benchmark.zip` from the MIPLIB website to this folder, script will process each mps file in `benchmark.zip` (restricted to files up to a certain number of constraints and variables) and time how long it takes each portion of our matrix viewer code, and creates a timing statistics csv file called `timing_statistics.csv`.)
+
+## THINGS TO DO TOMORROW
+- Merge all matrix viewers together. [THIS IS TOP PRIORITY]
+- Stuff for advisor!
+- Work on documentation for all files in repo.
+- Deploy via pyside6-deploy.
+- Final meeting.
+- After this, work on final presentation and report from Wed to Fri. RENAME python benchmark_matrix_viewer_timings in report. https://arxiv.org/pdf/1906.01629
 
 ## Developer's Notes: GitHub Desktop workflow.
 1. Clone the repo if you haven't already. Remember to fetch origin to make sure your files are synced with the repo!!!
