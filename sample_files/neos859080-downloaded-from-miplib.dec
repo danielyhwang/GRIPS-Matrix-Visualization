@@ -1,0 +1,218 @@
+\\ ndetectors 
+\\ 2 
+\\ name time nnewblocks %ofnewborderconss %ofnewblockconss %ofnewlinkingvars %ofnewblockvars  
+\\ consclass 0.000000 0 0.243902 0.000000 0.000000 0.000000 
+\\ connectedbase 0.000000 44 0.000000 0.000000 0.000000 1.000000 
+PRESOLVED
+0
+NBLOCKS
+44
+BLOCK 1
+c2
+c42
+c82
+BLOCK 2
+c3
+c43
+c83
+BLOCK 3
+c4
+c44
+c84
+BLOCK 4
+c5
+c45
+c85
+BLOCK 5
+c6
+c46
+c86
+BLOCK 6
+c7
+c47
+c87
+BLOCK 7
+c8
+c48
+c88
+BLOCK 8
+c9
+c49
+c89
+BLOCK 9
+c10
+c50
+c90
+BLOCK 10
+c11
+c51
+c91
+BLOCK 11
+c12
+c52
+c92
+BLOCK 12
+c13
+c53
+c93
+BLOCK 13
+c14
+c54
+c94
+BLOCK 14
+c15
+c55
+c95
+BLOCK 15
+c16
+c56
+c96
+BLOCK 16
+c17
+c57
+c97
+BLOCK 17
+c18
+c58
+c98
+BLOCK 18
+c19
+c59
+c99
+BLOCK 19
+c20
+c60
+c100
+BLOCK 20
+c21
+c61
+c101
+BLOCK 21
+c22
+c62
+c102
+BLOCK 22
+c23
+c63
+c103
+BLOCK 23
+c24
+c64
+c104
+BLOCK 24
+c25
+c65
+c105
+BLOCK 25
+c26
+c66
+c106
+BLOCK 26
+c27
+c67
+c107
+BLOCK 27
+c28
+c68
+c108
+BLOCK 28
+c29
+c69
+c109
+BLOCK 29
+c30
+c70
+c110
+BLOCK 30
+c31
+c71
+c111
+BLOCK 31
+c32
+c72
+c112
+BLOCK 32
+c33
+c73
+c113
+BLOCK 33
+c34
+c74
+c114
+BLOCK 34
+c35
+c75
+c115
+BLOCK 35
+c36
+c76
+c116
+BLOCK 36
+c37
+c77
+c117
+BLOCK 37
+c38
+c78
+c118
+BLOCK 38
+c39
+c79
+c119
+BLOCK 39
+c40
+c80
+c120
+BLOCK 40
+c41
+c81
+c121
+BLOCK 41
+c123
+BLOCK 42
+c124
+BLOCK 43
+c125
+BLOCK 44
+c126
+MASTERCONSS
+c1
+c122
+c127
+c128
+c129
+c130
+c131
+c132
+c133
+c134
+c135
+c136
+c137
+c138
+c139
+c140
+c141
+c142
+c143
+c144
+c145
+c146
+c147
+c148
+c149
+c150
+c151
+c152
+c153
+c154
+c155
+c156
+c157
+c158
+c159
+c160
+c161
+c162
+c163
+c164
