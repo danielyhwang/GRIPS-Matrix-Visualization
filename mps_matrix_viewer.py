@@ -14,10 +14,15 @@ from PySide6.QtWidgets import (
 from PySide6.QtCharts import QChart, QChartView, QScatterSeries, QValueAxis
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QPainter, QColor, QPixmap, QImage
-from pyscipopt import Model
+from pygcgopt import Model
 from scipy.sparse import csr_matrix
 from PIL import Image
 
+from pathlib import Path
+# Define directories, create partial_decomps directory if it doesn't exist, we'll store our stuff there.
+BASE_DIR = Path(__file__).resolve().parent
+PARTIAL_DECOMP_DIR = BASE_DIR / "partial_decomps"
+PARTIAL_DECOMP_DIR.mkdir(exist_ok=True)
 
 # -----------------------------
 # Custom Matplotlib canvas that allows row-click interaction
@@ -120,20 +125,71 @@ class MatrixViewer(QWidget):
         return QPixmap.fromImage(qimg)
 
     # -----------------------------
-    # Load MPS file into a sparse matrix
+    # Load MPS file into a sparse matrix. Will also compute (partial) dec files
     # -----------------------------
     def load_matrix(self, filename):
         model = Model()
         model.readProblem(filename)
-        variables = model.getVars()
-        constraints = model.getConss()
+
+        # Prevent upgrade as suggested by https://stackoverflow.com/questions/67828685/how-to-get-constraint-matrix-after-presolving-in-pyscipopt#67832364
+        param_dict = {"constraints/linear/upgrade/logicor" : False,
+                      "constraints/linear/upgrade/indicator" : False,
+                      "constraints/linear/upgrade/knapsack" : False,
+                      "constraints/linear/upgrade/setppc" : False,
+                      "constraints/linear/upgrade/xor" : False,
+                      "constraints/linear/upgrade/varbound" : False
+                      }
+        model.setParams(param_dict)
+
+        # Prints out GCG version. Somehow makes the code work. Words cannot explain my confusion.
+        model.printVersion()
+
+        # Detect decompositions
+        model.detect()
+        decomps = model.listDecompositions()
+
+        # try-except block is to prevent an OSError when writing all decompositions to disk.
+        try:
+            model.writeAllDecomps() # LINE WILL NOT WORK IF SELF.MODEL.PRESOLVE IS ENABLED.
+        except OSError:
+            msgBox = QMessageBox()
+            msgBox.setWindowTitle("")
+            msgBox.setText(f"Note: Due to OS Error, not all decompositions were written to alldecompositions/. Proceeding with code as normal.")
+            msgBox.exec()
+
+        print("GCG found {} finished decompositions.".format(len(decomps)))
+        #print(decomps) # Currently does not work due to bug in PyGCGOpt.
+
+        # These commands write all partial decompositions to disk.
+        STEM_OF_FILENAME = Path(filename).stem
+        #https://github.com/scipopt/PyGCGOpt/issues/27. writeAllDecomps fails.
+        for i in range(len(decomps)):
+            d = decomps[i]
+            d.isSelected = True
+            
+            PARTIAL_DECOMP_NAME = PARTIAL_DECOMP_DIR / f"{STEM_OF_FILENAME}_partial_decomposition_{i}.dec"
+            
+            # Apparently you have to print PARTIAL_DECOMP_NAME before calling self.model.writeProblem. 
+            # Words cannot explain my confusion, but leave both these commands alone.
+            print(PARTIAL_DECOMP_NAME)
+            model.writeProblem(str(PARTIAL_DECOMP_NAME))
+
+        # Set up variables and constraints.        
+        variables = model.getVars(transformed = False)
+        constraints = model.getConss(transformed = False)
         var_names = [var.name for var in variables]
         var_index = {name: idx for idx, name in enumerate(var_names)}
+        con_names = [con.name for con in constraints]
+        con_index = {name: idx for idx, name in enumerate(con_names)}
 
+        # Load in data from the matrix.
+        # For each row, we store a list of the columns represented in each row.
+        row_index_mapped_to_col_indices = {}
         row_inds, col_inds, data = [], [], []
         # Extract coefficients for each constraint-variable pair
         for i, cons in enumerate(constraints):
             terms = model.getValsLinear(cons)
+            row_index_mapped_to_col_indices[i] = set()
             for var_name, coef in terms.items():
                 j = var_index[var_name]
                 # We only append nonzero entries in our data
@@ -141,9 +197,98 @@ class MatrixViewer(QWidget):
                     row_inds.append(i)
                     col_inds.append(j)
                     data.append(coef)
+                    row_index_mapped_to_col_indices[i].add(j)
 
         # Build SciPy CSR sparse matrix
         self.A_sparse = csr_matrix((data, (row_inds, col_inds)), shape=(len(constraints), len(variables)))
+
+        # The following code sorts out the matrix for you, if you request it to, from a dec file.
+        msgBox = QMessageBox()
+        msgBox.setWindowTitle("")
+        msgBox.setText(f"This code should have written some (partial) decompositions to alldecompositions/ or partial_decomps/. You can either choose to load in the original matrix OR sort the matrix according to one of these decompositions.")
+
+        original_matrix_button = msgBox.addButton("View Original Matrix", QMessageBox.ActionRole);
+        sort_by_decomp_button = msgBox.addButton("Sort Matrix By Decomp", QMessageBox.ActionRole);
+        msgBox.exec()
+
+        if msgBox.clickedButton() == original_matrix_button:
+             pass #do nothing
+        elif msgBox.clickedButton() == sort_by_decomp_button:
+            filename, _ = QFileDialog.getOpenFileName(self, "Open DEC File", "", "DEC Files (*.dec *.DEC);;All Files (*)")
+            
+            # This code reads through a permutation and takes each of the blocks and sorts constraints accordingly to said blocks.
+            # I would make this a python function, but I need the var_index dict.
+
+            # Read through each of the blocks in order in the dec file. 
+            # https://www.geeksforgeeks.org/python/how-to-read-from-a-file-in-python/#linebyline-reading-in-python
+            idenRows = [None] * len(con_names)
+            currentConstraintIndex = len(con_names) - 1
+
+            idenCols = [None] * len(var_names)
+            currentVariableIndex = len(var_names) - 1
+
+            with open(filename, "r") as dec_file:
+                currently_in_block = False
+                current_rows_in_block = set()
+                for line in dec_file:
+                    stripped_line = line.strip()
+                    if stripped_line.startswith("CONSDEFAULTMASTER") or stripped_line.startswith("PRESOLVED") or stripped_line.startswith("NBLOCKS") or stripped_line.startswith("BLOCKVARS") or stripped_line.startswith("MASTERVAR") or stripped_line.startswith("LINKINGVAR"):
+                        #If our line starts with any of the keywords above, it has unnecessary information (as of writing this program)
+                        # and we ignore it. We ignore anything with variables at the moment, may integrate later.
+                        currently_in_block = False
+                    elif stripped_line.startswith("BLOCK"):
+                        # If our line starts with BLOCK or MASTERCONS, it is about to be followed by a list of constraints. 
+                        # Enabling currently_in_block will let us read those constraints in order in each block. Treat mastercons as a block.
+                        currently_in_block = True
+
+                        # Now that we've inputted in our rows from the corresponding block, we naively push the columns associated with each block to the end of the matrix
+                        # by compiling each of the column indices associated with each row and taking their set.
+                        # Note for the first time around, current_rows_in_block will be empty and will not run.
+
+                        # Issue, we have to ensure that columns only belong to one block.
+
+                        # Collect all columns in block
+                        current_cols_in_block = set()
+                        for block_row_index in current_rows_in_block:
+                            current_cols_in_block.update(row_index_mapped_to_col_indices[block_row_index])
+                        # Push these columns to the end.
+                        for block_col_index in current_cols_in_block:
+                            idenCols[currentVariableIndex] = block_col_index
+                            currentVariableIndex -= 1
+
+                        # Reset current rows and current columns in block.
+
+                        current_rows_in_block = set()
+                        current_cols_in_block = set()
+                            
+
+                    elif stripped_line.startswith("MASTERCONS"):
+                        # If our line starts with BLOCK or MASTERCONS, it is about to be followed by a list of constraints. 
+                        # Enabling currently_in_block will let us read those constraints in order in each block. Treat mastercons as a block.
+                        currently_in_block = True
+                        # However, we do not need to sort columns like we do above in the case of a block.
+                    elif currently_in_block and stripped_line != "":
+                        # If currently_in_block, we want to read in the index associated with said constraint and append it to idenRows
+                        idenRows[currentConstraintIndex] = con_index[stripped_line]
+                        currentConstraintIndex -= 1
+                        current_rows_in_block.add(con_index[stripped_line])
+
+            # Store permutation as idenRows, sort self.A_sparse according to idenRows.
+            # https://stackoverflow.com/questions/28334719/swap-rows-csr-matrix-scipy
+            # Note to self: The following array is taken from neos859080-cC-28-44dec.dec created by writeAllDecomps. For some reason, it fails due to OSError.
+            #[1, 122, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 2, 42, 82, 3, 43, 83, 4, 44, 84, 5, 45, 85, 6, 46, 86, 7, 47, 87, 8, 48, 88, 9, 49, 89, 10, 50, 90, 11, 51, 91, 12, 52, 92, 13, 53, 93, 14, 54, 94, 15, 55, 95, 16, 56, 96, 17, 57, 97, 18, 58, 98, 19, 59, 99, 20, 60, 100, 21, 61, 101, 22, 62, 102, 23, 63, 103, 24, 64, 104, 25, 65, 105, 26, 66, 106, 27, 67, 107, 28, 68, 108, 29, 69, 109, 30, 70, 110, 31, 71, 111, 32, 72, 112, 33, 73, 113, 34, 74, 114, 35, 75, 115, 36, 76, 116, 37, 77, 117, 38, 78, 118, 39, 79, 119, 40, 80, 120, 41, 81, 121, 123, 124, 125, 126]
+
+            A_temp_sparse = self.A_sparse.tocoo()
+        
+            idenRows = np.argsort(idenRows)
+            idenRows = np.asarray(idenRows, dtype=A_temp_sparse.row.dtype)
+            A_temp_sparse.row = idenRows[A_temp_sparse.row]
+
+            idenCols = np.argsort(idenCols)
+            idenCols = np.asarray(idenCols, dtype=A_temp_sparse.col.dtype)
+            A_temp_sparse.col = idenCols[A_temp_sparse.col]
+            
+            self.A_sparse = A_temp_sparse.tocsr()
 
         # Compute matrix properties for display
         props = [
@@ -408,6 +553,87 @@ class MatrixViewer(QWidget):
         filename, _ = QFileDialog.getSaveFileName(self, "Save Chart", "plot.jpeg", "JPEG (*.jpeg *.jpg)")
         if filename and pixmap:
             pixmap.save(filename, "JPEG")
+
+    # -----------------------------
+    # Sorts a matrix by using a dec file. Note that the current implementation only supports one-time use of this function.
+    # -----------------------------
+    def sort_matrix_by_dec(self):
+        filename, _ = QFileDialog.getOpenFileName(self, "Open DEC File", "", "DEC Files (*.dec *.DEC);;All Files (*)")
+            
+        # This code reads through a permutation and takes each of the blocks and sorts constraints accordingly to said blocks.
+
+        # Read through each of the blocks in order in the dec file. 
+        # https://www.geeksforgeeks.org/python/how-to-read-from-a-file-in-python/#linebyline-reading-in-python
+        idenRows = [None] * len(con_names)
+        currentConstraintIndex = len(con_names) - 1
+
+        idenCols = [None] * len(var_names)
+        currentVariableIndex = len(var_names) - 1
+
+        with open(filename, "r") as dec_file:
+            currently_in_block = False
+            current_rows_in_block = set()
+            for line in dec_file:
+                stripped_line = line.strip()
+                if stripped_line.startswith("CONSDEFAULTMASTER") or stripped_line.startswith("PRESOLVED") or stripped_line.startswith("NBLOCKS") or stripped_line.startswith("BLOCKVARS") or stripped_line.startswith("MASTERVAR") or stripped_line.startswith("LINKINGVAR"):
+                    #If our line starts with any of the keywords above, it has unnecessary information (as of writing this program)
+                    # and we ignore it. We ignore anything with variables at the moment, may integrate later.
+                    currently_in_block = False
+                elif stripped_line.startswith("BLOCK"):
+                    # If our line starts with BLOCK or MASTERCONS, it is about to be followed by a list of constraints. 
+                    # Enabling currently_in_block will let us read those constraints in order in each block. Treat mastercons as a block.
+                    currently_in_block = True
+                    
+                    # Now that we've inputted in our rows from the corresponding block, we naively push the columns associated with each block to the end of the matrix
+                    # by compiling each of the column indices associated with each row and taking their set.
+                    # Note for the first time around, current_rows_in_block will be empty and will not run.
+
+                    # Issue, we have to ensure that columns only belong to one block.
+
+                    # Collect all columns in block
+                    current_cols_in_block = set()
+                    for block_row_index in current_rows_in_block:
+                        current_cols_in_block.update(row_index_mapped_to_col_indices[block_row_index])
+                        # Push these columns to the end.
+                        for block_col_index in current_cols_in_block:
+                            idenCols[currentVariableIndex] = block_col_index
+                            currentVariableIndex -= 1
+
+                        # Reset current rows and current columns in block.
+
+                        current_rows_in_block = set()
+                        current_cols_in_block = set()
+                            
+                elif stripped_line.startswith("MASTERCONS"):
+                    # If our line starts with BLOCK or MASTERCONS, it is about to be followed by a list of constraints. 
+                    # Enabling currently_in_block will let us read those constraints in order in each block. Treat mastercons as a block.
+                    currently_in_block = True
+                    # However, we do not need to sort columns like we do above in the case of a block.
+                elif currently_in_block and stripped_line != "":
+                    # If currently_in_block, we want to read in the index associated with said constraint and append it to idenRows
+                    idenRows[currentConstraintIndex] = con_index[stripped_line]
+                    currentConstraintIndex -= 1
+                    current_rows_in_block.add(con_index[stripped_line])
+
+            # Store permutation as idenRows, sort self.A_sparse according to idenRows.
+            # https://stackoverflow.com/questions/28334719/swap-rows-csr-matrix-scipy
+            # Note to self: The following array is taken from neos859080-cC-28-44dec.dec created by writeAllDecomps. For some reason, it fails due to OSError.
+            #[1, 122, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 2, 42, 82, 3, 43, 83, 4, 44, 84, 5, 45, 85, 6, 46, 86, 7, 47, 87, 8, 48, 88, 9, 49, 89, 10, 50, 90, 11, 51, 91, 12, 52, 92, 13, 53, 93, 14, 54, 94, 15, 55, 95, 16, 56, 96, 17, 57, 97, 18, 58, 98, 19, 59, 99, 20, 60, 100, 21, 61, 101, 22, 62, 102, 23, 63, 103, 24, 64, 104, 25, 65, 105, 26, 66, 106, 27, 67, 107, 28, 68, 108, 29, 69, 109, 30, 70, 110, 31, 71, 111, 32, 72, 112, 33, 73, 113, 34, 74, 114, 35, 75, 115, 36, 76, 116, 37, 77, 117, 38, 78, 118, 39, 79, 119, 40, 80, 120, 41, 81, 121, 123, 124, 125, 126]
+
+            A_temp_sparse = self.A_sparse.tocoo()
+        
+            idenRows = np.argsort(idenRows)
+            idenRows = np.asarray(idenRows, dtype=A_temp_sparse.row.dtype)
+            A_temp_sparse.row = idenRows[A_temp_sparse.row]
+
+            idenCols = np.argsort(idenCols)
+            idenCols = np.asarray(idenCols, dtype=A_temp_sparse.col.dtype)
+            A_temp_sparse.col = idenCols[A_temp_sparse.col]
+            
+            self.A_sparse = A_temp_sparse.tocsr()
+
+            # Now update the plot with new matrix by using binary plot
+            self.update_plot("Binary")
 
 
 # -----------------------------
