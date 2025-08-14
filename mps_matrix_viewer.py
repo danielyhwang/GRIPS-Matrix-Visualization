@@ -221,12 +221,18 @@ class MatrixViewer(QWidget):
 
             # Read through each of the blocks in order in the dec file. 
             # https://www.geeksforgeeks.org/python/how-to-read-from-a-file-in-python/#linebyline-reading-in-python
+            
+            # We create a list of indices idenRows and idenCols that tell us how to sort the rows and columns. [A permutation of the indices 0, ..., numRows - 1 and 0, ..., numCols - 1]
             idenRows = [None] * len(con_names)
             currentConstraintIndex = len(con_names) - 1
 
             idenCols = [None] * len(var_names)
             currentVariableIndex = len(var_names) - 1
 
+            # Collect all columns that somehow do not get added in this process.
+            all_columns_used = set()
+
+            # Now read through the dec file.
             with open(filename, "r") as dec_file:
                 currently_in_block = False
                 current_rows_in_block = set()
@@ -251,6 +257,7 @@ class MatrixViewer(QWidget):
                         current_cols_in_block = set()
                         for block_row_index in current_rows_in_block:
                             current_cols_in_block.update(row_index_mapped_to_col_indices[block_row_index])
+                            all_columns_used.update(row_index_mapped_to_col_indices[block_row_index])
                         # Push these columns to the end.
                         for block_col_index in current_cols_in_block:
                             idenCols[currentVariableIndex] = block_col_index
@@ -283,6 +290,12 @@ class MatrixViewer(QWidget):
             idenRows = np.argsort(idenRows)
             idenRows = np.asarray(idenRows, dtype=A_temp_sparse.row.dtype)
             A_temp_sparse.row = idenRows[A_temp_sparse.row]
+
+            # Search through all columns and add the ones that weren't added to idenCols earlier.
+            for col in range(len(var_names)):
+                if col not in all_columns_used:
+                    idenCols[currentVariableIndex] = col
+                    currentVariableIndex -= 1
 
             idenCols = np.argsort(idenCols)
             idenCols = np.asarray(idenCols, dtype=A_temp_sparse.col.dtype)
