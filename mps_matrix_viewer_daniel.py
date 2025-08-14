@@ -243,11 +243,12 @@ class MatrixViewer(QWidget):
                         # by compiling each of the column indices associated with each row and taking their set.
                         # Note for the first time around, current_rows_in_block will be empty and will not run.
 
+                        # Issue, we have to ensure that columns only belong to one block.
+
                         # Collect all columns in block
                         current_cols_in_block = set()
                         for block_row_index in current_rows_in_block:
                             current_cols_in_block.update(row_index_mapped_to_col_indices[block_row_index])
-                        
                         # Push these columns to the end.
                         for block_col_index in current_cols_in_block:
                             idenCols[currentVariableIndex] = block_col_index
@@ -264,7 +265,7 @@ class MatrixViewer(QWidget):
                         # Enabling currently_in_block will let us read those constraints in order in each block. Treat mastercons as a block.
                         currently_in_block = True
                         # However, we do not need to sort columns like we do above in the case of a block.
-                    elif currently_in_block:
+                    elif currently_in_block and stripped_line != "":
                         # If currently_in_block, we want to read in the index associated with said constraint and append it to idenRows
                         idenRows[currentConstraintIndex] = con_index[stripped_line]
                         currentConstraintIndex -= 1
